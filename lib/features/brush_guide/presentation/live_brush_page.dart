@@ -19,7 +19,7 @@ import '../../brush_guide/application/story_director.dart';
 import '../../brush_guide/application/radar_progress_engine.dart';
 import '../../brush_guide/presentation/radar_overlay.dart';
 
-// ✅ 결과 페이지 (아래 2번 파일과 함께 사용)
+// ✅ 결과 페이지
 import 'package:chicachew/features/brush_guide/presentation/brush_result_page.dart';
 
 // ────────────────────────────────────────────────────────────────────
@@ -38,16 +38,17 @@ const bool kUseMpTasks = true;
 const bool kShowFaceGuide = false;
 
 // 안정화/게이트 파라미터
-const double kMinRelFace   = 0.20;  // 얼굴 높이 / 프레임 높이 (정규화 하한)
-const double kMaxRelFace   = 0.80;  // (정규화 상한)
+// ▼ 버퍼 에러/얼굴 인식 빈도 안정화를 위해 범위 조금 타이트하게
+const double kMinRelFace   = 0.30;  // 얼굴 높이 / 프레임 높이 (정규화 하한)
+const double kMaxRelFace   = 0.60;  // (정규화 상한)
 const double kMinLuma      = 0.12;  // Y 평균 밝기(0~1) 하한
 const double kCenterJumpTol = 0.12; // 직전 프레임 대비 중심 이동 허용치(프리뷰 비율)
 const double kFeatEmaAlpha  = 0.60; // 특징 EMA 알파
 const double kPosTol        = 0.08; // 중앙 정렬 허용치(비율)
 const int    kOkFlashMs     = 1200; // “범위 내에” 배지 노출 시간(ms)
 
-// MediaPipe 프레임 전송 쓰로틀
-const int kMpSendIntervalMs = 60;   // ≈16~20fps
+// MediaPipe 프레임 전송 쓰로틀 (전송량 낮춰 안정화)
+const int kMpSendIntervalMs = 120;  // ≈8~12fps
 
 // 좌표 로깅 옵션
 const bool kLogLandmarks = true;
@@ -170,6 +171,12 @@ class _LiveBrushPageState extends State<LiveBrushPage>
   bool _mpSending = false;
   int _mpLastSentMs = 0;
 
+  // ✅ 자동 보정/진단 토글들
+  bool _swapUV = false;        // U/V 뒤바뀜 보정
+  int? _forceRotDeg;           // 0/90/180/270 강제 회전
+  bool _previewEnabled = true; // 프리뷰 임시 off용
+  int _framesSent = 0;         // 진단 로그용
+
   String get _chicachuAvatarPath => chicachuAssetOf(widget.chicachuVariant);
 
   String _avatarForSpeaker(Speaker s) {
@@ -221,11 +228,9 @@ class _LiveBrushPageState extends State<LiveBrushPage>
   Future<void> _initMpTasks() async {
     try {
       final mp = MpTasksBridge.instance;
-      // 기본 호출(브리지가 'init'로 연결돼 있다면 그대로 통과)
       try {
         await mp.start(face: true, hands: true, useNativeCamera: false);
       } on MissingPluginException {
-        // 혹시 브리지가 아직 'start'를 네이티브 'init'에 안 맞춰놨다면 폴백
         const mc = MethodChannel('mp_tasks');
         await mc.invokeMethod('init', {
           'face': true,
@@ -339,7 +344,7 @@ class _LiveBrushPageState extends State<LiveBrushPage>
     _progress.stop();
     _director.dispose();
     _ttsMgr.dispose();
-    _mpSub?.cancel(); // ✅ 브릿지 구독만 해제 (stop은 생명주기에서 처리)
+    _mpSub?.cancel(); // ✅ 브릿지 구독만 해제
     super.dispose();
   }
 
@@ -399,7 +404,7 @@ class _LiveBrushPageState extends State<LiveBrushPage>
 
       final controller = CameraController(
         front,
-        ResolutionPreset.low,      // 필요시 veryLow 로 더 낮출 수 있음
+        ResolutionPreset.low, // ▼ 버퍼 여유 확보 (필요시 low로 상향)
         enableAudio: false,
         imageFormatGroup: ImageFormatGroup.yuv420,
       );
@@ -542,16 +547,24 @@ class _LiveBrushPageState extends State<LiveBrushPage>
     final c = _cam;
     if (c == null) return;
 
-    final rot = _computeRotationDegrees(); // 센서+디바이스 방향 포함
+    final rot = _forceRotDeg ?? _computeRotationDegrees(); // ✅ 강제 회전 우선
 
     _mpSending = true;
     _mpLastSentMs = now;
     try {
       if (img.planes.length < 3) return;
 
+      // ✅ U/V 스왑 보정
       final y = img.planes[0];
-      final u = img.planes[1];
-      final v = img.planes[2];
+      final u = _swapUV ? img.planes[2] : img.planes[1];
+      final v = _swapUV ? img.planes[1] : img.planes[2];
+
+      _framesSent++;
+      if (_framesSent == 1) {
+        debugPrint('[MP] first frame rot=$rot wh=${img.width}x${img.height} '
+            'Yrow=${y.bytesPerRow}, Urow=${u.bytesPerRow}(ps=${u.bytesPerPixel}), '
+            'Vrow=${v.bytesPerRow}(ps=${v.bytesPerPixel}), swapUV=$_swapUV');
+      }
 
       await MpTasksBridge.instance.processYuv420Planes(
         y: y.bytes,
@@ -726,14 +739,27 @@ class _LiveBrushPageState extends State<LiveBrushPage>
     _lastLuma = _estimateLuma01(img);
 
     // 얼굴 신호가 오래 끊겼으면 사용자 배너만 갱신
-    final stale = DateTime.now().difference(_lastFaceUpdateAt) >
-        const Duration(milliseconds: 800);
+    final nowT = DateTime.now();
+    final stale = nowT.difference(_lastFaceUpdateAt) > const Duration(milliseconds: 800);
     if (stale) {
       setState(() {
         _faceRectInPreview = null;
         _gateMsg = '얼굴이 보이도록 카메라 중앙에 맞춰주세요';
         _okMsgUntil = DateTime(0);
       });
+
+      // ✅ 자동 보정 워치독: 얼굴 이벤트가 한동안 안 오면 단계적으로 보정
+      final gapMs = nowT.difference(_lastFaceUpdateAt).inMilliseconds;
+      if (gapMs > 1800 && _forceRotDeg == null) {
+        setState(() => _forceRotDeg = 270);
+        debugPrint('[MP][AutoFix] no face >1.8s → forceRotDeg=270');
+      } else if (gapMs > 3200 && !_swapUV) {
+        setState(() => _swapUV = true);
+        debugPrint('[MP][AutoFix] no face >3.2s → swapUV=true');
+      } else if (gapMs > 4600 && _previewEnabled) {
+        setState(() => _previewEnabled = false);
+        debugPrint('[MP][AutoFix] no face >4.6s → disable preview');
+      }
     }
 
     // 모델 추론 쓰로틀 (2프레임에 1회)
@@ -1016,7 +1042,8 @@ class _LiveBrushPageState extends State<LiveBrushPage>
     final showPreview = !kDemoMode &&
         !_camDisposing &&
         cam != null &&
-        cam.value.isInitialized;
+        cam.value.isInitialized &&
+        _previewEnabled; // ✅ 프리뷰 토글 반영
 
     final debugInStr = BrushModelEngine.I.isSequenceModel
         ? 'SEQ:${BrushModelEngine.I.seqT}x${BrushModelEngine.I.seqD}'
@@ -1194,12 +1221,15 @@ class _LiveBrushPageState extends State<LiveBrushPage>
                       'dist:${_lastRel==null ? "n/a" : "${_inRange ? "ok" : "bad"} ${((_lastRel??0)*100).toStringAsFixed(0)}%"}  '
                       'luma:${(_lastLuma*100).toStringAsFixed(0)}%  '
                       'stab:${_lastStable ? "ok" : "shaky"}  '
-                      'feed:${_feedThisFrame ? "on" : "skip"}',
+                      'feed:${_feedThisFrame ? "on" : "skip"}  '
+                      'rot:${_forceRotDeg ?? _computeRotationDegrees()}  '
+                      'uv:${_swapUV ? "swapped" : "normal"}  '
+                      'preview:${_previewEnabled ? "on" : "off"}',
                   style: const TextStyle(
                       color: Colors.white, fontWeight: FontWeight.bold),
                   softWrap: true,
                   overflow: TextOverflow.fade,
-                  maxLines: 3,
+                  maxLines: 4,
                 ),
               ),
             ),
@@ -1577,7 +1607,11 @@ class _GuidePainter extends CustomPainter {
 class _FaceBoxPainter extends CustomPainter {
   final Rect faceRect;
   final bool ok;
-  const _FaceBoxPainter({required this.faceRect, required this.ok});
+
+  const _FaceBoxPainter({
+    required this.faceRect,
+    required this.ok,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1585,14 +1619,18 @@ class _FaceBoxPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
       ..color = ok ? const Color(0xFF00E676) : const Color(0xFFFF7043);
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(faceRect, const Radius.circular(12)), p);
+
+    final rrect = RRect.fromRectAndRadius(faceRect, const Radius.circular(12));
+    canvas.drawRRect(rrect, p);
   }
 
   @override
-  bool shouldRepaint(covariant _FaceBoxPainter oldDelegate) =>
-      oldDelegate.faceRect != faceRect || oldDelegate.ok != ok;
+  bool shouldRepaint(covariant _FaceBoxPainter oldDelegate) {
+    return oldDelegate.faceRect != faceRect || oldDelegate.ok != ok;
+  }
 }
+
+
 
 // ─────────────────────────────────────────────────────────────────
 // 아래는 기존 HUD/말풍선/엔딩 뷰

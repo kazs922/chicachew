@@ -119,7 +119,7 @@ class MpTasks(
                 .setRunningMode(RunningMode.LIVE_STREAM)
                 .setResultListener { res: HandLandmarkerResult, _: MPImage ->
                     val lmsList = res.landmarks()
-                    val handednesses = res.handednesses
+                    val handednesses = res.handednesses()
                     val handed = if (handednesses.isNotEmpty() && handednesses[0].isNotEmpty())
                         handednesses[0][0].categoryName() else "Unknown"
                     val first = if (lmsList.isNotEmpty()) toTriples(lmsList[0]) else emptyList()
