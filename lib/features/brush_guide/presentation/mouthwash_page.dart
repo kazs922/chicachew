@@ -1,16 +1,21 @@
-// lib/features/mouthwash/presentation/mouthwash_page.dart
+// 📍 lib/features/mouthwash/presentation/mouthwash_page.dart
+// (파일 전체를 이 코드로 교체하세요)
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 
 class MouthwashPage extends StatefulWidget {
-  const MouthwashPage({super.key, this.onDone, this.totalSeconds = 30});
-
-  /// 완료 시 외부로 알리고 싶으면 콜백 주입, 아니면 null이면 pop 처리
-  final VoidCallback? onDone;
-
-  /// 카운트다운 길이(기본 30초)
+  // ✅ 1. 양치 점수 데이터를 받을 수 있도록 scores 변수를 추가합니다.
+  final List<double> scores;
   final int totalSeconds;
+
+  const MouthwashPage({
+    super.key,
+    required this.scores,
+    this.totalSeconds = 30,
+  });
 
   @override
   State<MouthwashPage> createState() => _MouthwashPageState();
@@ -18,7 +23,7 @@ class MouthwashPage extends StatefulWidget {
 
 class _MouthwashPageState extends State<MouthwashPage> {
   Timer? _tm;
-  late int _remain;     // 남은 초
+  late int _remain;
   bool _running = false;
   bool _finished = false;
 
@@ -26,7 +31,7 @@ class _MouthwashPageState extends State<MouthwashPage> {
   void initState() {
     super.initState();
     _remain = widget.totalSeconds;
-    _start(); // 진입 시 바로 시작 (원하면 주석 처리)
+    _start();
   }
 
   @override
@@ -47,10 +52,7 @@ class _MouthwashPageState extends State<MouthwashPage> {
         _remain = 0;
         _finish();
       } else {
-        setState(() {
-          _remain--;
-        });
-        // 10초 단위 & 마지막 3초 카운트에 가벼운 햅틱
+        setState(() => _remain--);
         if (_remain % 10 == 0 || _remain <= 3) {
           HapticFeedback.lightImpact();
         }
@@ -66,6 +68,20 @@ class _MouthwashPageState extends State<MouthwashPage> {
     setState(() {});
   }
 
+  void _finish() async {
+    if (_finished) return;
+    _finished = true;
+    setState(() {});
+    HapticFeedback.heavyImpact();
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
+
+    // ✅ 2. onDone 콜백 대신, GoRouter를 사용해 결과 페이지로 이동합니다.
+    // 이때, 받아온 scores 데이터를 그대로 전달합니다.
+    context.go('/brush-result', extra: widget.scores);
+  }
+
+  // (나머지 _reset, _skip, _mmss 함수는 기존과 동일)
   void _reset() {
     _tm?.cancel();
     _running = false;
@@ -75,24 +91,11 @@ class _MouthwashPageState extends State<MouthwashPage> {
   }
 
   void _skip() {
+    if (_finished) return;
     _tm?.cancel();
     _running = false;
     _remain = 0;
     _finish();
-  }
-
-  void _finish() async {
-    if (_finished) return;
-    _finished = true;
-    setState(() {});
-    HapticFeedback.heavyImpact();
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (!mounted) return;
-    if (widget.onDone != null) {
-      widget.onDone!();
-    } else {
-      Navigator.of(context).maybePop();
-    }
   }
 
   String _mmss(int secs) {
@@ -103,174 +106,127 @@ class _MouthwashPageState extends State<MouthwashPage> {
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).padding.bottom;
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+    final colorScheme = theme.colorScheme;
     final progress = (_finished || widget.totalSeconds == 0)
         ? 1.0
         : 1.0 - (_remain / widget.totalSeconds);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5FFF8),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // 상단 스킵/리셋 액션
-            Positioned(
-              right: 12,
-              top: 8,
-              child: Row(
-                children: [
-                  TextButton(
-                    onPressed: _reset,
-                    child: const Text('처음부터'),
-                  ),
-                  const SizedBox(width: 4),
-                  TextButton(
+      // ✅ 3. UI 개선: 다른 페이지와 통일성을 위해 그라데이션 배경을 추가합니다.
+      body: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              colorScheme.primaryContainer.withOpacity(0.5),
+              colorScheme.surface,
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              children: [
+                // ✅ 4. UI 개선: 건너뛰기 버튼을 더 명확하게 변경합니다.
+                Align(
+                  alignment: Alignment.topRight,
+                  child: TextButton.icon(
                     onPressed: _skip,
-                    child: const Text('건너뛰기'),
-                  ),
-                ],
-              ),
-            ),
-
-            // 본문
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-              child: Column(
-                children: [
-                  const Spacer(),
-                  const Text('가글 타임', style: TextStyle(
-                      fontSize: 22, fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 4),
-                  Text(
-                    '입안을 천천히 헹궈요 · 거품은 삼키지 않기',
-                    style: TextStyle(
-                        fontSize: 14, color: Colors.black.withOpacity(0.55)),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
-
-                  // 원형 진행바 + 남은 시간
-                  SizedBox(
-                    width: 220, height: 220,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        SizedBox(
-                          width: 220, height: 220,
-                          child: CircularProgressIndicator(
-                            value: progress,
-                            strokeWidth: 14,
-                            backgroundColor: const Color(0xFFB2DFDB),
-                          ),
-                        ),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 250),
-                          transitionBuilder: (child, anim) =>
-                              ScaleTransition(scale: anim, child: child),
-                          child: _finished
-                              ? const Icon(Icons.check_circle,
-                              key: ValueKey('done'),
-                              size: 88, color: Color(0xFF2E7D32))
-                              : Text(
-                            _mmss(_remain),
-                            key: ValueKey('time_${_remain}'),
-                            style: const TextStyle(
-                              fontSize: 42,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                      ],
+                    icon: const Icon(Icons.fast_forward),
+                    label: const Text('건너뛰기'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: colorScheme.onSurface.withOpacity(0.7),
                     ),
                   ),
+                ),
+                const Spacer(),
 
-                  const SizedBox(height: 24),
-                  // 간단 팁 3줄
-                  const _TipRow('볼·혀 사이까지 천천히 헹구기'),
-                  const _TipRow('좌우, 위아래 골고루 30초'),
-                  const _TipRow('삼키지 말고 뱉기'),
+                // ✅ 5. UI 개선: 꾸미기용 이미지를 추가합니다.
+                Image.asset('assets/images/intro/int_clo.png', height: 120),
+                const SizedBox(height: 24),
 
-                  const Spacer(),
+                Text(
+                  _finished ? '완벽해요!' : '가글 타임',
+                  style: textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _finished ? '이제 결과를 확인해볼까요?' : '입안을 천천히 헹궈주세요 · 거품은 삼키지 않기',
+                  style: textTheme.titleMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
 
-                  if (!_finished)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: _running ? _pause : _start,
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size.fromHeight(52),
-                              side: const BorderSide(color: Color(0xFF2E7D32)),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: Text(_running ? '일시정지' : '시작'),
+                SizedBox(
+                  width: 180, height: 180,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox(
+                        width: 180, height: 180,
+                        child: CircularProgressIndicator(
+                          value: progress,
+                          strokeWidth: 12,
+                          backgroundColor: colorScheme.surfaceVariant,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 250),
+                        transitionBuilder: (child, anim) =>
+                            ScaleTransition(scale: anim, child: child),
+                        child: _finished
+                            ? Icon(Icons.check_circle,
+                            key: const ValueKey('done'),
+                            size: 80, color: colorScheme.primary)
+                            : Text(
+                          _mmss(_remain),
+                          key: ValueKey('time_$_remain'),
+                          style: textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w900,
+                            fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _skip,
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size.fromHeight(52),
-                              backgroundColor: const Color(0xFF2E7D32),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: const Text('바로 완료'),
-                          ),
-                        ),
-                      ],
-                    )
-                  else
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _finish, // 콜백/Pop 처리
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(54),
-                          backgroundColor: const Color(0xFF2E7D32),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: const Text('양치하러 가기'),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Spacer(),
+                const Spacer(),
+
+                // ✅ 6. UI 개선: 시작/일시정지 버튼을 하나로 통일하고 디자인을 개선합니다.
+                if (!_finished)
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _running ? _pause : _start,
+                      icon: Icon(_running ? Icons.pause_circle : Icons.play_circle),
+                      label: Text(_running ? '일시정지' : '다시 시작'),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                     ),
-
-                  SizedBox(height: bottom + 16),
-                ],
-              ),
+                  )
+                else
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: _finish,
+                      child: const Text('결과 보기'),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TipRow extends StatelessWidget {
-  const _TipRow(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('✅', style: TextStyle(fontSize: 18)),
-          const SizedBox(width: 8),
-          Text(
-            text,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
           ),
-        ],
+        ),
       ),
     );
   }

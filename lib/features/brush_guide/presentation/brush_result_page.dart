@@ -1,35 +1,31 @@
-// lib/features/brush_guide/presentation/brush_result_page.dart
+// 📍 lib/features/brush_guide/presentation/brush_result_page.dart
+// (파일 전체를 이 코드로 교체하세요)
+
 import 'package:flutter/material.dart';
 import 'radar_overlay.dart'; // 같은 폴더라 상대경로로 import
 
-/// (로컬) 13개 양치 구역 라벨 — core/widgets/constants.dart 없이도 동작하도록 준비
 const List<String> kBrushZoneLabelsKo = [
-  '왼쪽 바깥니',           // 0
-  '앞니 바깥니',           // 1
-  '오른쪽 바깥니',         // 2
-  '오른쪽 안쪽니',         // 3
-  '앞니 안쪽니',           // 4
-  '왼쪽 안쪽니',           // 5
-  '왼쪽 혀쪽니',           // 6
-  '앞니 혀쪽니',           // 7
-  '오른쪽 혀쪽니',         // 8
-  '오른쪽 윗 어금니 씹는면', // 9
-  '왼쪽 윗 어금니 씹는면',   // 10
-  '왼쪽 아래 어금니 씹는면', // 11
-  '오른쪽 아래 어금니 씹는면',// 12
+  '왼쪽\n바깥니',
+  '앞니\n바깥니',
+  '오른쪽\n바깥니',
+  '오른쪽\n안쪽니',
+  '앞니\n안쪽니',
+  '왼쪽\n안쪽니',
+  '왼쪽\n혀쪽니',
+  '앞니\n혀쪽니',
+  '오른쪽\n혀쪽니',
+  '오른쪽 위\n씹는면',
+  '왼쪽 위\n씹는면',
+  '왼쪽 아래\n씹는면',
+  '오른쪽 아래\n씹는면',
 ];
 
-/// (로컬) 0..1 → "NN%"
 String toPercentString(double v) =>
     '${(v.clamp(0.0, 1.0) * 100).toStringAsFixed(0)}%';
 
-/// 라이브 브러쉬 종료 후 결과 페이지.
-/// - 상단 레이더 차트: 13구역 진행도(scores01: 0..1)
-/// - 하단 피드백: threshold 미만인 구역 리스트업
-/// - 완료 버튼: onDone 콜백 호출 (예: 일일 3칸 중 1칸 채우기)
 class BrushResultPage extends StatelessWidget {
-  final List<double> scores01; // 길이 13, 각 0..1
-  final double threshold;      // 미달 기준 (기본 0.6 권장)
+  final List<double> scores01;
+  final double threshold;
   final VoidCallback? onDone;
 
   const BrushResultPage({
@@ -56,7 +52,6 @@ class BrushResultPage extends StatelessWidget {
           children: [
             const SizedBox(height: 16),
 
-            // 레이더 차트
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: AspectRatio(
@@ -68,13 +63,13 @@ class BrushResultPage extends StatelessWidget {
                   fallbackDemoIfEmpty: false,
                   fx: RadarFx.none,
                   showHighlight: false,
+                  labels: kBrushZoneLabelsKo, // ✅ 여기에 라벨 목록을 전달합니다.
                 ),
               ),
             ),
 
             const SizedBox(height: 12),
 
-            // 간단 요약
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0),
               child: Text(
@@ -85,17 +80,16 @@ class BrushResultPage extends StatelessWidget {
 
             const SizedBox(height: 8),
 
-            // 부족 구역 피드백
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: (weakIndices.isEmpty)
                     ? const _CongratsView()
+                // ✅ 라벨이 길어져도 UI가 깨지지 않도록 수정
                     : _WeakList(weakIndices: weakIndices, scores01: scores01),
               ),
             ),
 
-            // 완료 버튼
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
               child: SizedBox(
@@ -106,8 +100,8 @@ class BrushResultPage extends StatelessWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: () {
-                    onDone?.call();          // 외부 상태 갱신(예: 일일 1칸 채우기)
-                    Navigator.pop(context);  // 결과 닫기
+                    onDone?.call();
+                    Navigator.pop(context);
                   },
                   child: const Text('완료', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
@@ -167,7 +161,8 @@ class _WeakList extends StatelessWidget {
       itemBuilder: (context, i) {
         final idx = weakIndices[i];
         final label = (idx >= 0 && idx < kBrushZoneLabelsKo.length)
-            ? kBrushZoneLabelsKo[idx]
+        // ✅ 줄바꿈 문자를 공백으로 바꿔서 한 줄로 보이게 함
+            ? kBrushZoneLabelsKo[idx].replaceAll('\n', ' ')
             : '구역 ${idx + 1}';
         final percent = toPercentString(scores01[idx]);
 

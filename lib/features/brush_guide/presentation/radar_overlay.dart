@@ -1,35 +1,23 @@
+// 📍 lib/features/brush_guide/presentation/radar_overlay.dart
+// (파일 전체를 이 코드로 교체하세요)
+
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-/// 라디얼 이펙트 모드
-enum RadarFx { none, radialFlood, radialPulse }
+enum RadarFx { none, radialPulse }
 
-/// 13각 레이더 오버레이 (+ 라디얼 FX)
+// ✅ StatelessWidget -> StatefulWidget 으로 올바르게 수정했습니다.
 class RadarOverlay extends StatefulWidget {
-  /// 각 구역 진행률 0.0~1.0 (길이 13 권장)
   final List<double>? scores;
-
-  /// 현재 구역 하이라이트(0~12), 미사용 시 -1
   final int activeIndex;
-
-  /// 정사각 픽셀 크기 (expand=false일 때만 사용)
   final double size;
-
-  /// 부모 영역을 가득 채울지 여부 (true 권장)
   final bool expand;
-
-  /// scores가 null/길이≠13이면 데모 값으로라도 표시
   final bool fallbackDemoIfEmpty;
-
-  /// 방사형 이펙트
   final RadarFx fx;
-
-  /// 이펙트 1사이클 시간
   final Duration fxPeriod;
-
-  /// 현재 구역 웨지 표시 여부
   final bool showHighlight;
+  final List<String>? labels;
 
   const RadarOverlay({
     super.key,
@@ -41,6 +29,7 @@ class RadarOverlay extends StatefulWidget {
     this.fx = RadarFx.none,
     this.fxPeriod = const Duration(milliseconds: 1400),
     this.showHighlight = true,
+    this.labels,
   });
 
   @override
@@ -91,6 +80,11 @@ class _RadarOverlayState extends State<RadarOverlay>
       fx: widget.fx,
       showHighlight: widget.showHighlight,
       fallbackDemoIfEmpty: widget.fallbackDemoIfEmpty,
+      labels: widget.labels,
+      labelStyle: TextStyle(
+        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+        fontSize: 12,
+      ),
     );
 
     final child = (_ac == null)
@@ -101,7 +95,6 @@ class _RadarOverlayState extends State<RadarOverlay>
     );
 
     if (widget.expand) {
-      // 부모 공간을 그대로 채움 (Stack에서 Positioned.fill과 동일 효과)
       return LayoutBuilder(
         builder: (_, c) => SizedBox(width: c.maxWidth, height: c.maxHeight, child: child),
       );
@@ -114,10 +107,12 @@ class _RadarOverlayState extends State<RadarOverlay>
 class _RadarOverlayPainter extends CustomPainter {
   final List<double>? scores;
   final int activeIndex;
-  final double t;           // 0..1 (라디얼 FX 진행도)
+  final double t;
   final RadarFx fx;
   final bool showHighlight;
   final bool fallbackDemoIfEmpty;
+  final List<String>? labels;
+  final TextStyle labelStyle;
 
   _RadarOverlayPainter({
     required this.scores,
@@ -126,9 +121,10 @@ class _RadarOverlayPainter extends CustomPainter {
     required this.fx,
     required this.showHighlight,
     required this.fallbackDemoIfEmpty,
+    this.labels,
+    required this.labelStyle,
   });
 
-  // 안전한 13개 값 만들기
   List<double> _safe13(List<double>? src) {
     if (src == null || src.length != 13) {
       if (!fallbackDemoIfEmpty) return List.filled(13, 0.0);
@@ -143,48 +139,18 @@ class _RadarOverlayPainter extends CustomPainter {
     final vals = _safe13(scores);
 
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = min(size.width, size.height) * 0.42;  // 가장자리 여백
+    final radius = min(size.width, size.height) * 0.35;
     const int n = 13;
-    const int levels = 5;  // 격자 단계
-    final start = -pi / 2; // 위쪽부터 시작
+    const int levels = 5;
+    final start = -pi / 2;
     final sweep = 2 * pi / n;
 
-    // ── 격자 및 축 스타일
-    final gridPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2
-      ..isAntiAlias = true
-      ..color = Colors.grey.shade500.withOpacity(0.9);
-
-    final axisPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1
-      ..isAntiAlias = true
-      ..color = Colors.grey.shade500.withOpacity(0.6);
-
-    // ── 데이터 영역 스타일(핑크 채움 + 레드 라인)
-    final dataFill = Paint()
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true
-      ..color = const Color(0xFFFF6B6B).withOpacity(0.28);
-
-    final dataStroke = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..isAntiAlias = true
-      ..color = const Color(0xFFE53935);
-
-    // ── 하이라이트 웨지
-    final highlightFill = Paint()
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true
-      ..color = Colors.amber.withOpacity(0.18);
-
-    final highlightStroke = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..isAntiAlias = true
-      ..color = Colors.amber.withOpacity(0.8);
+    final gridPaint = Paint()..color = Colors.grey.shade500.withOpacity(0.9)..style = PaintingStyle.stroke..strokeWidth = 1.2..isAntiAlias = true;
+    final axisPaint = Paint()..color = Colors.grey.shade500.withOpacity(0.6)..style = PaintingStyle.stroke..strokeWidth = 1..isAntiAlias = true;
+    final dataFill = Paint()..color = const Color(0xFFFF6B6B).withOpacity(0.28)..style = PaintingStyle.fill..isAntiAlias = true;
+    final dataStroke = Paint()..color = const Color(0xFFE53935)..style = PaintingStyle.stroke..strokeWidth = 2..isAntiAlias = true;
+    final highlightFill = Paint()..color = Colors.amber.withOpacity(0.18)..style = PaintingStyle.fill..isAntiAlias = true;
+    final highlightStroke = Paint()..color = Colors.amber.withOpacity(0.8)..style = PaintingStyle.stroke..strokeWidth = 2..isAntiAlias = true;
 
     Path _polyOf(double r) {
       final p = Path();
@@ -197,18 +163,15 @@ class _RadarOverlayPainter extends CustomPainter {
       return p;
     }
 
-    // ── 격자
     for (int l = 1; l <= levels; l++) {
       canvas.drawPath(_polyOf(radius * l / levels), gridPaint);
     }
-    // 축
     for (int i = 0; i < n; i++) {
       final a = start + i * sweep;
       final end = Offset(center.dx + radius * cos(a), center.dy + radius * sin(a));
       canvas.drawLine(center, end, axisPaint);
     }
 
-    // ── 데이터 폴리곤 (scores 반영)
     final dataPath = Path();
     for (int i = 0; i < n; i++) {
       final a = start + i * sweep;
@@ -217,38 +180,14 @@ class _RadarOverlayPainter extends CustomPainter {
       i == 0 ? dataPath.moveTo(pt.dx, pt.dy) : dataPath.lineTo(pt.dx, pt.dy);
     }
     dataPath.close();
-
-    // 채움 + 윤곽선
     canvas.drawPath(dataPath, dataFill);
     canvas.drawPath(dataPath, dataStroke);
 
-    // ── 방사형 이펙트 (데이터 영역 내부에만 보이게 클리핑)
+    // (이하 방사형 이펙트 및 하이라이트 로직)
     if (fx != RadarFx.none) {
       canvas.save();
       canvas.clipPath(dataPath);
-
       switch (fx) {
-        case RadarFx.radialFlood:
-          final rr = radius * (0.18 + 0.82 * t);
-          canvas.drawCircle(
-            center,
-            rr,
-            Paint()
-              ..style = PaintingStyle.fill
-              ..isAntiAlias = true
-              ..color = const Color(0xFFFF6B6B).withOpacity(0.20),
-          );
-          canvas.drawCircle(
-            center,
-            rr,
-            Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = max(1.5, radius * 0.02)
-              ..isAntiAlias = true
-              ..color = const Color(0xFFE53935).withOpacity(0.6),
-          );
-          break;
-
         case RadarFx.radialPulse:
           const int waves = 3;
           final lineW = max(1.5, radius * 0.05);
@@ -256,37 +195,41 @@ class _RadarOverlayPainter extends CustomPainter {
             final phase = (t + k / waves) % 1.0;
             final rr = radius * (0.18 + 0.82 * phase);
             final fade = (1.0 - phase).clamp(0.0, 1.0);
-            canvas.drawCircle(
-              center,
-              rr,
-              Paint()
-                ..style = PaintingStyle.stroke
-                ..strokeWidth = lineW
-                ..isAntiAlias = true
-                ..color = const Color(0xFFE53935).withOpacity(0.35 * fade),
-            );
+            canvas.drawCircle(center, rr, Paint()..style = PaintingStyle.stroke..strokeWidth = lineW..isAntiAlias = true..color = const Color(0xFFE53935).withOpacity(0.35 * fade));
           }
           break;
-
-        case RadarFx.none:
+        default:
           break;
       }
       canvas.restore();
     }
-
-    // ── (옵션) 현재 구역 하이라이트 웨지
     if (showHighlight && activeIndex >= 0 && activeIndex < 13) {
       final a0 = start + activeIndex * sweep;
       final a1 = start + ((activeIndex + 1) % 13) * sweep;
       final v0 = Offset(center.dx + radius * cos(a0), center.dy + radius * sin(a0));
       final v1 = Offset(center.dx + radius * cos(a1), center.dy + radius * sin(a1));
-      final wedge = Path()
-        ..moveTo(center.dx, center.dy)
-        ..lineTo(v0.dx, v0.dy)
-        ..lineTo(v1.dx, v1.dy)
-        ..close();
+      final wedge = Path()..moveTo(center.dx, center.dy)..lineTo(v0.dx, v0.dy)..lineTo(v1.dx, v1.dy)..close();
       canvas.drawPath(wedge, highlightFill);
       canvas.drawPath(wedge, highlightStroke);
+    }
+
+    // 라벨을 그리는 로직
+    if (labels != null && labels!.length == n) {
+      final labelRadius = radius * 1.25;
+      for (int i = 0; i < n; i++) {
+        final angle = start + (2 * pi * i) / n;
+        final x = center.dx + labelRadius * cos(angle);
+        final y = center.dy + labelRadius * sin(angle);
+        final textSpan = TextSpan(text: labels![i], style: labelStyle);
+        final textPainter = TextPainter(
+          text: textSpan,
+          textAlign: TextAlign.center,
+          textDirection: TextDirection.ltr,
+        );
+        textPainter.layout(minWidth: 0, maxWidth: size.width * 0.4);
+        final offset = Offset(x - textPainter.width / 2, y - textPainter.height / 2);
+        textPainter.paint(canvas, offset);
+      }
     }
   }
 
@@ -296,7 +239,8 @@ class _RadarOverlayPainter extends CustomPainter {
         !listEquals(old.scores, scores) ||
         old.t != t ||
         old.fx != fx ||
-        old.showHighlight != showHighlight ||
-        old.fallbackDemoIfEmpty != fallbackDemoIfEmpty;
+        old.showHighlight != old.showHighlight ||
+        old.fallbackDemoIfEmpty != old.fallbackDemoIfEmpty ||
+        !listEquals(old.labels, labels);
   }
 }
