@@ -18,11 +18,18 @@ import 'package:chicachew/core/ml/postprocess.dart';
 import 'package:chicachew/core/tts/tts_manager.dart';
 import 'package:chicachew/core/ml/brush_predictor.dart';
 import 'package:chicachew/core/landmarks/mediapipe_tasks.dart';
-import 'package:chicachew/core/ml/model_provider.dart'; // (+) 방금 만든 Provider import
+//import 'package:chicachew/core/ml/model_provider.dart'; // (+) 방금 만든 Provider import
 import '../../brush_guide/application/story_director.dart';
 import '../../brush_guide/application/radar_progress_engine.dart';
 import '../../brush_guide/presentation/radar_overlay.dart';
 import 'package:chicachew/features/brush_guide/presentation/brush_result_page.dart';
+
+final brushPredictorProvider = FutureProvider<BrushPredictor>((ref) async {
+  await BrushModelEngine.I.load();
+  final predictor = BrushPredictor();
+  await predictor.init();
+  return predictor;
+});
 
 // (이하 모든 상수는 그대로 유지)
 // ────────────────────────────────────────────────────────────────────
@@ -136,6 +143,8 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
   bool _previewEnabled = true;
   int _framesSent = 0;
 
+  bool _isCameraInitializing = false;
+
   String get _chicachuAvatarPath => chicachuAssetOf(widget.chicachuVariant);
 
   String _avatarForSpeaker(Speaker s) {
@@ -179,7 +188,6 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     }
 
     // 4. 모델 로딩은 Provider에 맡기고, 카메라 부팅만 호출
-    _bootCamera();
   }
 
   // (모든 함수는 그대로 유지됩니다)
@@ -324,50 +332,55 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     setState(() => _camState = _CamState.granted);
 
     // (-) 모델 로딩은 Provider가 하므로 카메라 초기화만 진행
-    await _initCamera();
 
     // (+) 모델이 준비된 후에 스트림 시작 (build 메서드에서 처리)
   }
 
+  Future<void> _initializeCameraAfterModel() async {
+    if (_isCameraInitializing || _cam != null) return;
+    _isCameraInitializing = true;
+
+    if (mounted) setState(() => _camState = _CamState.requesting);
+    var status = await Permission.camera.status;
+    if (!status.isGranted) status = await Permission.camera.request();
+    if (!mounted) return;
+
+    if (status.isPermanentlyDenied || !status.isGranted) {
+      if (mounted) setState(() => _camState = _CamState.denied);
+      return;
+    }
+    if (mounted) setState(() => _camState = _CamState.granted);
+
+    await _initCamera();
+  }
+
   Future<void> _initCamera() async {
-    // ... (기존 코드와 동일)
     try {
       final cams = await availableCameras();
       if (cams.isEmpty) {
-        if (mounted) {
-          setState(() {
-            _camState = _CamState.noCamera;
-            _camError = '카메라 장치를 찾을 수 없습니다.';
-          });
-        }
+        if (mounted) setState(() { _camState = _CamState.noCamera; _camError = '카메라 장치를 찾을 수 없습니다.'; });
         return;
       }
-      final front = cams.firstWhere(
-            (c) => c.lensDirection == CameraLensDirection.front,
-        orElse: () => cams.first,
-      );
+      final front = cams.firstWhere((c) => c.lensDirection == CameraLensDirection.front, orElse: () => cams.first);
+
       await _disposeCamSafely();
-      final controller = CameraController(
-        front,
-        ResolutionPreset.low,
-        enableAudio: false,
-        imageFormatGroup: ImageFormatGroup.yuv420,
-      );
+
+      final controller = CameraController(front, ResolutionPreset.low, enableAudio: false, imageFormatGroup: ImageFormatGroup.yuv420);
       await controller.initialize();
+
       if (!mounted) {
         await controller.dispose();
         return;
       }
       _cam = controller;
-      setState(() => _camState = _CamState.ready);
+
+      await _startStream();
+
+      if (mounted) setState(() => _camState = _CamState.ready);
+
     } catch (e, st) {
       debugPrint('Camera init error: $e\n$st');
-      if (mounted) {
-        setState(() {
-          _camState = _CamState.initError;
-          _camError = '$e';
-        });
-      }
+      if (mounted) setState(() { _camState = _CamState.initError; _camError = '$e'; });
     }
   }
 
@@ -828,11 +841,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     if (_finaleTriggered || !mounted) return;
     _finaleTriggered = true;
 
-    if (kDemoMode) {
-      _stopDemo();
-    } else {
-      await _disposeCamSafely();
-    }
+    await _disposeCamSafely();
     _progress.stop();
 
     setState(() => _finale = result ?? FinaleResult.win);
@@ -847,20 +856,12 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     await _ttsMgr.speak(line, speaker: Speaker.chikachu);
     HapticFeedback.heavyImpact();
 
-    // ✅ 이 부분이 새롭게 수정된 핵심 로직입니다.
     if (!mounted) return;
-
-    // 1. 5초를 기다립니다.
     await Future.delayed(const Duration(seconds: 5));
 
-    // 2. 5초 후에도 페이지가 살아있는지 다시 확인합니다.
     if (!mounted) return;
-
-    // 3. 점수 데이터를 준비합니다.
     final scores01 = _normalizedScores(_lastScores);
 
-    // 4. GoRouter를 사용하여 가글 페이지('/mouthwash')로 점수 데이터를 가지고 이동합니다.
-    // 이 부분은 이전에 수정한 app_router.dart와 mouthwash_page.dart가 올바르게 설정되어 있어야 합니다.
     context.push('/mouthwash', extra: scores01);
   }
   Timer? _demoTm;
@@ -889,237 +890,163 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
 
   @override
   Widget build(BuildContext context) {
-    // 12. (+) ref.watch로 Provider의 상태(로딩/성공/실패)를 감시
     final modelAsyncValue = ref.watch(brushPredictorProvider);
 
     return Scaffold(
-      // 13. (+) modelAsyncValue.when을 사용하여 상태에 따라 다른 UI를 표시
       body: modelAsyncValue.when(
-        // ++ 모델 로딩 중일 때 UI
         loading: () => const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               CircularProgressIndicator(),
               SizedBox(height: 16),
-              Text('양치질 분석 모델을 준비 중입니다...', style: TextStyle(fontSize: 16)),
+              Text('양치질 분석 모델을 준비 중입니다...'),
             ],
           ),
         ),
-        // ++ 모델 로딩 실패 시 UI
-        error: (err, stack) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text('모델 로딩에 실패했습니다: $err'),
-            )),
-        // ++ 모델 로딩 성공 시 UI
+        error: (err, stack) => Center(child: Text('모델 로딩 실패: $err')),
         data: (predictor) {
-          // 14. (+) 모델이 준비되었으므로, 아직 시작 안했다면 카메라 스트림 시작
-          if (_cam?.value.isInitialized == true && !_streamOn) {
-            _startStream();
+          if (_camState == _CamState.idle) {
+            Future.microtask(() => _initializeCameraAfterModel());
           }
 
-          // (이하 기존 build 메서드의 로직을 그대로 가져옵니다)
-          final now = DateTime.now();
-          final showDialogue = now.isBefore(_dialogueUntil) && _dialogue != null;
-
-          final cam = _cam;
-          final showPreview = !kDemoMode &&
-              !_camDisposing &&
-              cam != null &&
-              cam.value.isInitialized &&
-              _previewEnabled;
-
-          final debugInStr = BrushModelEngine.I.isSequenceModel
-              ? 'SEQ:${BrushModelEngine.I.seqT}x${BrushModelEngine.I.seqD}'
-              : 'in:${BrushModelEngine.I.inputH}x${BrushModelEngine.I.inputW}  C:${BrushModelEngine.I.inputC}${BrushModelEngine.I.isNHWC ? " NHWC" : " NCHW"}';
-
-          final showOk = now.isBefore(_okMsgUntil);
-          final showGuide = _gateMsg != null && _gateMsg!.isNotEmpty;
-
-          return Stack(
-            children: [
-              // (기존 Stack의 모든 자식 위젯들은 그대로 유지됩니다)
-              Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFFBFEAD6), Color(0xFFA5E1B2), Color(0xFFE8FCD8)],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                ),
-              ),
-
-              if (showPreview)
-                Positioned.fill(
-                  child: Builder(
-                    builder: (_) => CameraPreview(
-                      cam!,
-                      key: ValueKey(cam),
-                    ),
-                  ),
-                ),
-
-              if (showPreview && kShowFaceGuide)
-                Positioned.fill(
-                  child: LayoutBuilder(
-                    builder: (context, c) {
-                      final previewSize = Size(c.maxWidth, c.maxHeight);
-                      return FaceAlignOverlay(
-                        previewSize: previewSize,
-                        faceBoxInPreview: _faceRectInPreview,
-                        yawDeg: _yawDeg,
-                        pitchDeg: _pitchDeg,
-                        rollDeg: _rollDeg,
-                      );
-                    },
-                  ),
-                ),
-              if (showOk || showGuide)
-                Positioned(
-                  left: 20, right: 20,
-                  bottom: MediaQuery.of(context).padding.bottom + 32,
-                  child: AnimatedOpacity(
-                    opacity: 1.0,
-                    duration: const Duration(milliseconds: 150),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: showOk ? const Color(0xFF2E7D32) : Colors.black.withOpacity(0.55),
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 3))],
-                      ),
-                      child: Center(
-                        child: Text( showOk ? '범위 내에 들어왔습니다!' : _gateMsg!,
-                          textAlign: TextAlign.center, softWrap: true, maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle( color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700,),
+          switch (_camState) {
+            case _CamState.ready:
+              final cam = _cam;
+              final showPreview = !kDemoMode && !_camDisposing && cam != null && cam.value.isInitialized && _previewEnabled;
+              if (showPreview) {
+                return Stack(
+                  children: [
+                    Positioned.fill(child: CameraPreview(cam)),
+                    if (kShowFaceGuide)
+                      Positioned.fill(
+                        child: LayoutBuilder(
+                          builder: (context, c) {
+                            final previewSize = Size(c.maxWidth, c.maxHeight);
+                            return FaceAlignOverlay(
+                              previewSize: previewSize,
+                              faceBoxInPreview: _faceRectInPreview,
+                              yawDeg: _yawDeg,
+                              pitchDeg: _pitchDeg,
+                              rollDeg: _rollDeg,
+                            );
+                          },
                         ),
                       ),
-                    ),
-                  ),
-                ),
-              if (!kDemoMode && !showPreview)
-                Positioned.fill(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 360),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.videocam_off, size: 48, color: Colors.black45),
-                          const SizedBox(height: 10),
-                          Text(
-                            _camState == _CamState.denied ? '카메라 권한이 필요합니다'
-                                : _camState == _CamState.noCamera ? '카메라 장치를 찾을 수 없습니다'
-                                : _camState == _CamState.initError ? '카메라 초기화 실패'
-                                : (_camDisposing ? '카메라 정리 중…' : '카메라 초기화 중…'),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                                color: Colors.black54, fontWeight: FontWeight.w600),
-                          ),
-                          if (_camState == _CamState.denied) ...[
-                            const SizedBox(height: 8),
-                            TextButton(
-                                onPressed: openAppSettings,
-                                child: const Text('설정에서 권한 열기')),
-                          ],
-                          if (_camState == _CamState.initError || _camState == _CamState.noCamera) ...[
-                            const SizedBox(height: 8),
-                            TextButton(
-                              onPressed: _bootCamera,
-                              child: const Text('다시 시도'),
-                            ),
-                          ],
-                          if (_camError.isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            Text( _camError, textAlign: TextAlign.center,
-                              style: const TextStyle(color: Colors.black45, fontSize: 12),
-                            ),
-                          ],
-                        ],
+                    Positioned.fill(
+                      child: StreamBuilder<List<double>>(
+                        stream: _progress.progressStream,
+                        initialData: List.filled(kBrushZoneCount, 0.0),
+                        builder: (context, snapshot) {
+                          final scores01 = _normalizedScores(snapshot.data ?? []);
+                          final activeIdx = _suggestActiveIndex(scores01);
+                          return RadarOverlay(
+                            scores: scores01,
+                            activeIndex: activeIdx,
+                            expand: true,
+                            fallbackDemoIfEmpty: false,
+                            fx: RadarFx.radialPulse,
+                            showHighlight: true,
+                          );
+                        },
                       ),
                     ),
-                  ),
-                ),
-              Positioned.fill(
-                child: StreamBuilder<List<double>>(
-                  stream: _progress.progressStream,
-                  initialData: List.filled(kBrushZoneCount, 0.0),
-                  builder: (context, snapshot) {
-                    final scores01 = _normalizedScores(snapshot.data ?? []);
-                    final activeIdx = _suggestActiveIndex(scores01);
-                    return RadarOverlay(
-                      scores: scores01,
-                      activeIndex: activeIdx,
-                      expand: true,
-                      fallbackDemoIfEmpty: false,
-                      fx: RadarFx.radialPulse,
-                      showHighlight: true,
-                    );
-                  },
-                ),
-              ),
-
-              Positioned(
-                left: 12, right: 12,
-                top: MediaQuery.of(context).padding.top + 8,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 560),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    color: Colors.black54,
-                    child: Text(
-                      kDemoMode ? 'DEMO MODE'
-                          : 'cam:${showPreview ? "ready" : (_camDisposing ? "disposing" : "init...")}  '
-                          'state:${_camState.name}  '
-                      // 15. (+) 모델 준비 상태를 Provider로부터 확인
-                          'model:${modelAsyncValue.hasValue ? "ready" : "loading"}(${BrushModelEngine.I.backend})  '
-                          'stream:${_streamOn ? "on" : "off"}  '
-                          '$debugInStr  '
-                          'dist:${_lastRel == null ? "n/a" : "${_inRange ? "ok" : "bad"} ${((_lastRel ?? 0) * 100).toStringAsFixed(0)}%"}  '
-                          'luma:${(_lastLuma * 100).toStringAsFixed(0)}%  '
-                          'stab:${_lastStable ? "ok" : "shaky"}  '
-                          'feed:${_feedThisFrame ? "on" : "skip"}  '
-                          'rot:${_forceRotDeg ?? _computeRotationDegrees()}  '
-                          'uv:${_swapUV ? "swapped" : "normal"}  '
-                          'preview:${_previewEnabled ? "on" : "off"}',
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold),
-                      softWrap: true,
-                      overflow: TextOverflow.fade,
-                      maxLines: 4,
+                    if ((_gateMsg != null && _gateMsg!.isNotEmpty) || DateTime.now().isBefore(_okMsgUntil))
+                      Positioned(
+                        left: 20,
+                        right: 20,
+                        bottom: MediaQuery.of(context).padding.bottom + 32,
+                        child: AnimatedOpacity(
+                          opacity: 1.0,
+                          duration: const Duration(milliseconds: 150),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: DateTime.now().isBefore(_okMsgUntil)
+                                  ? const Color(0xFF2E7D32)
+                                  : Colors.black.withOpacity(0.55),
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: const [
+                                BoxShadow(
+                                    color: Colors.black26,
+                                    blurRadius: 8,
+                                    offset: Offset(0, 3))
+                              ],
+                            ),
+                            child: Center(
+                              child: Text(
+                                DateTime.now().isBefore(_okMsgUntil)
+                                    ? '범위 내에 들어왔습니다!'
+                                    : _gateMsg!,
+                                textAlign: TextAlign.center,
+                                softWrap: true,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (_dialogue != null && DateTime.now().isBefore(_dialogueUntil))
+                      Positioned(
+                        left: 12, right: 12,
+                        bottom: MediaQuery.of(context).padding.bottom + 120,
+                        child: _DialogueOverlay(
+                          text: _dialogue!.text,
+                          avatarPath: _avatarForSpeaker(_dialogue!.speaker),
+                          alignLeft: _dialogue!.speaker != Speaker.cavitymon,
+                        ),
+                      ),
+                    Positioned(
+                      left: 16, right: 16,
+                      bottom: MediaQuery.of(context).padding.bottom + 16,
+                      child: _BossHud(advantage: _advantage),
                     ),
-                  ),
-                ),
-              ),
+                    if (_finale != null)
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.black.withOpacity(0.55),
+                          alignment: Alignment.center,
+                          child: _FinaleView(result: _finale!),
+                        ),
+                      ),
+                  ],
+                );
+              }
+              return const Center(child: CircularProgressIndicator());
 
-              // (-) 모델 로드 에러 패널은 error: 빌더로 대체되었으므로 삭제
-              if (showDialogue)
-                Positioned(
-                  left: 12, right: 12,
-                  bottom: MediaQuery.of(context).padding.bottom + 120,
-                  child: _DialogueOverlay(
-                    text: _dialogue!.text,
-                    avatarPath: _avatarForSpeaker(_dialogue!.speaker),
-                    alignLeft: _dialogue!.speaker != Speaker.cavitymon,
-                  ),
+            case _CamState.denied:
+              return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('카메라 권한이 필요합니다.'),
+                      const SizedBox(height: 8),
+                      TextButton(onPressed: openAppSettings, child: const Text('설정에서 권한 열기')),
+                    ],
+                  )
+              );
+
+            case _CamState.initError:
+              return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Text('카메라 초기화 실패\n$_camError'), TextButton(onPressed: _initializeCameraAfterModel, child: const Text('다시 시도'))]));
+
+            default:
+              return const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('카메라를 준비 중입니다...'),
+                  ],
                 ),
-              Positioned(
-                left: 16, right: 16,
-                bottom: MediaQuery.of(context).padding.bottom + 16,
-                child: _BossHud(advantage: _advantage),
-              ),
-              if (_finale != null)
-                Positioned.fill(
-                  child: Container(
-                    color: Colors.black.withOpacity(0.55),
-                    alignment: Alignment.center,
-                    child: _FinaleView(result: _finale!),
-                  ),
-                ),
-            ],
-          );
+              );
+          }
         },
       ),
     );
