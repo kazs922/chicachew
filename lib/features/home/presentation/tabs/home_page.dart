@@ -1,4 +1,5 @@
-// lib/features/home/presentation/tabs/home_page.dart
+// 📍 lib/features/home/presentation/tabs/home_page.dart (전체 파일)
+
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -8,9 +9,13 @@ import 'package:chicachew/core/storage/local_store.dart';
 import 'package:chicachew/core/storage/profile.dart';
 import 'package:chicachew/core/storage/active_profile_store.dart';
 
-// ⬇️ 사용자별 BP/스트릭 저장소
 import 'package:chicachew/core/bp/user_bp_store.dart';
 import 'package:chicachew/core/bp/user_streak_store.dart';
+
+import 'package:chicachew/features/home/presentation/tabs/education_page.dart';
+// ✨ [수정] 새로 만든 공용 데이터 파일을 import 합니다.
+import 'package:chicachew/features/edu/edu_data.dart';
+
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -21,20 +26,13 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   List<Profile> profiles = [];
-
-  // 현재 선택된 프로필 인덱스(-1 = 없음)
   int _activeIdx = -1;
-
-  // 상태칩
   int _bp = 0;
   int _streakDays = 0;
+  bool _mBrush3 = false;
+  bool _mTimes3 = false;
+  bool _mMouthwash = false;
 
-  // 오늘의 미션
-  bool _mBrush3 = false;     // 양치 3분
-  bool _mTimes3 = false;     // 하루 3번 양치
-  bool _mMouthwash = false;  // 가글
-
-  // ✅ 사용자별 네임스페이스 키 (예: idx0, idx1, …)
   String get _uKey => _activeIdx >= 0 ? 'idx$_activeIdx' : 'idx-1';
 
   @override
@@ -44,7 +42,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _reloadAll() async {
-    // 사용자 키가 먼저 정해져야 하므로 순차 로드
     await _loadProfiles();
     await _loadStatus();
     await _loadMissions();
@@ -66,7 +63,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadProfiles() async {
-    final store  = LocalStore();
+    final store = LocalStore();
     final loaded = await store.getProfiles();
 
     int? savedIdx = await ActiveProfileStore.getIndex();
@@ -82,7 +79,7 @@ class _HomePageState extends State<HomePage> {
 
     if (!mounted) return;
     setState(() {
-      profiles   = loaded;
+      profiles = loaded;
       _activeIdx = nextIdx;
     });
   }
@@ -102,7 +99,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadStatus() async {
-    // ✅ 사용자별 BP/스트릭 로딩
     final bp = (_activeIdx >= 0) ? await UserBpStore.total(_uKey) : 0;
     final (days, _) = (_activeIdx >= 0)
         ? await UserStreakStore.info(_uKey)
@@ -111,17 +107,15 @@ class _HomePageState extends State<HomePage> {
     if (!mounted) return;
     setState(() {
       _bp = bp;
-      _streakDays = days;
+      _streakDays = days ?? 0;
     });
   }
 
-  // 오늘 날짜(YYYYMMDD)
   String _todayKey() {
     final d = DateUtils.dateOnly(DateTime.now());
     return '${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}';
   }
 
-  // ✅ 사용자별 + 날짜별 미션 키 조합
   String _missionKey(String id, {String? day}) {
     final k = day ?? _todayKey();
     return 'mission_${_uKey}_$k$id';
@@ -132,9 +126,9 @@ class _HomePageState extends State<HomePage> {
     final k = _todayKey();
     if (!mounted) return;
     setState(() {
-      _mBrush3    = p.getBool(_missionKey('brush3', day: k)) ?? false;
-      _mTimes3    = p.getBool(_missionKey('times3', day: k)) ?? false;
-      _mMouthwash = p.getBool(_missionKey('mouth',  day: k)) ?? false;
+      _mBrush3 = p.getBool(_missionKey('brush3', day: k)) ?? false;
+      _mTimes3 = p.getBool(_missionKey('times3', day: k)) ?? false;
+      _mMouthwash = p.getBool(_missionKey('mouth', day: k)) ?? false;
     });
   }
 
@@ -147,12 +141,11 @@ class _HomePageState extends State<HomePage> {
     }
 
     final p = await SharedPreferences.getInstance();
-    final k   = _todayKey();
+    final k = _todayKey();
     final key = _missionKey(id, day: k);
     final prev = p.getBool(key) ?? false;
 
     if (!prev && value) {
-      // 최초 체크 → 보상 지급 + 스트릭 갱신
       await p.setBool(key, true);
       await UserBpStore.add(_uKey, reward, note: '오늘의 미션:$id');
       await UserStreakStore.markToday(_uKey);
@@ -170,11 +163,10 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       if (id == 'brush3') _mBrush3 = value;
       if (id == 'times3') _mTimes3 = value;
-      if (id == 'mouth')  _mMouthwash = value;
+      if (id == 'mouth') _mMouthwash = value;
     });
   }
 
-  /// 요일별 캐릭터
   String getCharacter(int weekday) {
     switch (weekday) {
       case 1: return "canine";
@@ -210,7 +202,6 @@ class _HomePageState extends State<HomePage> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // 날짜 + 상태칩 + 현재 사용자
           Row(
             children: [
               Text(dateString,
@@ -229,15 +220,13 @@ class _HomePageState extends State<HomePage> {
                 label: Text('BP $_bp'),
               ),
               const SizedBox(width: 8),
-              Chip(
-                avatar: const Icon(Icons.local_fire_department_outlined, size: 18),
-                label: Text('연속 $_streakDays일'),
-              ),
+              // Chip(
+              //   avatar: const Icon(Icons.local_fire_department_outlined, size: 18),
+              //   label: Text('연속 $_streakDays일'),
+              // ),
             ],
           ),
           const SizedBox(height: 16),
-
-          // ───────── 프로필 리스트 ─────────
           Container(
             padding: const EdgeInsets.all(16),
             decoration: _cardDeco(Colors.blue),
@@ -283,7 +272,7 @@ class _HomePageState extends State<HomePage> {
                       final isActive = index == _activeIdx;
 
                       return GestureDetector(
-                        onTap: () => _selectProfile(index), // ✅ 탭 시 전환
+                        onTap: () => _selectProfile(index),
                         child: Column(
                           children: [
                             Container(
@@ -310,7 +299,7 @@ class _HomePageState extends State<HomePage> {
                               ),
                               child: ProfileCircle(
                                 progress: profile.brushCount,
-                                avatar: profile.avatar, // 'canine' 등 id
+                                avatar: profile.avatar,
                                 size: 120,
                               ),
                             ),
@@ -330,10 +319,7 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
           ),
-
           const SizedBox(height: 24),
-
-          // ───────── 캐릭터/문구/미션 ─────────
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
@@ -361,9 +347,9 @@ class _HomePageState extends State<HomePage> {
                     Expanded(
                       child: FilledButton.icon(
                         onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('양치 시작!')),
-                          );
+                          final characters = ['molar', 'canine', 'upper', 'lower'];
+                          final randomCharacter = characters[Random().nextInt(characters.length)];
+                          context.push('/live_brush', extra: randomCharacter);
                         },
                         icon: const Icon(Icons.play_circle_outline),
                         label: const Text('양치 시작'),
@@ -373,8 +359,21 @@ class _HomePageState extends State<HomePage> {
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('오늘의 퀴즈로 이동')),
+                          // ✨ [수정] 공용 데이터인 eduSeed를 사용하도록 변경합니다.
+                          final dailyQuizItem = eduSeed.firstWhere(
+                                  (e) => e.id == 'kid_quiz_daily',
+                              orElse: () => EduItem(
+                                  id: 'not_found',
+                                  audience: Audience.kid,
+                                  category: 'habit',
+                                  title: '퀴즈를 찾을 수 없어요',
+                                  media: MediaType.text,
+                                  body: '오류가 발생했습니다.'
+                              )
+                          );
+
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => EduDetailPage(item: dailyQuizItem)),
                           );
                         },
                         icon: const Icon(Icons.quiz_outlined),
@@ -384,14 +383,12 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
                 const SizedBox(height: 16),
-
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text('오늘의 미션',
                       style: Theme.of(context).textTheme.titleMedium),
                 ),
                 const SizedBox(height: 8),
-
                 GridView(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -490,8 +487,8 @@ class _HomePageState extends State<HomePage> {
 }
 
 class ProfileCircle extends StatelessWidget {
-  final int progress; // 0~3
-  final String avatar; // 'canine' 등 id
+  final int progress;
+  final String avatar;
   final double size;
 
   const ProfileCircle({
@@ -521,7 +518,7 @@ class ProfileCircle extends StatelessWidget {
 }
 
 class _ProfilePainter extends CustomPainter {
-  final int progress; // 0~3
+  final int progress;
   _ProfilePainter(this.progress);
 
   @override
@@ -532,12 +529,10 @@ class _ProfilePainter extends CustomPainter {
       ..strokeWidth = 6
       ..color = Colors.grey.shade300;
 
-    // 배경 링
     for (int i = 0; i < 3; i++) {
       canvas.drawArc(rect.deflate(3), -pi / 2 + i * (2 * pi / 3), 2 * pi / 3, false, bg);
     }
 
-    // 진행 링
     final fg = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6

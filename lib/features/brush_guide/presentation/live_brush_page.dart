@@ -1,4 +1,4 @@
-// 📍 lib/features/brush_guide/presentation/live_brush_page.dart (파일 전체를 복사해서 붙여넣으세요)
+// 📍 lib/features/brush_guide/presentation/live_brush_page.dart (전체 파일)
 
 import 'dart:async';
 import 'dart:io';
@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // (+) Riverpod import 추가
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 // 앱 내부 의존
@@ -18,7 +18,6 @@ import 'package:chicachew/core/ml/postprocess.dart';
 import 'package:chicachew/core/tts/tts_manager.dart';
 import 'package:chicachew/core/ml/brush_predictor.dart';
 import 'package:chicachew/core/landmarks/mediapipe_tasks.dart';
-//import 'package:chicachew/core/ml/model_provider.dart'; // (+) 방금 만든 Provider import
 import '../../brush_guide/application/story_director.dart';
 import '../../brush_guide/application/radar_progress_engine.dart';
 import '../../brush_guide/presentation/radar_overlay.dart';
@@ -32,18 +31,18 @@ final brushPredictorProvider = FutureProvider<BrushPredictor>((ref) async {
 });
 
 // (이하 모든 상수는 그대로 유지)
-// ────────────────────────────────────────────────────────────────────
 const int kBrushZoneCount = 13;
 const int kSequenceLength = 30;
 const int kFeatureDimension = 108;
 const bool kDemoMode = false;
 const bool kUseMpTasks = true;
-const bool kShowFaceGuide = false;
+// ✨ [수정] 얼굴 가이드라인을 항상 표시하도록 true로 변경합니다.
+const bool kShowFaceGuide = true;
 const double kMinRelFace = 0.30;
 const double kMaxRelFace = 0.60;
 const double kMinLuma = 0.12;
 const double kCenterJumpTol = 0.12;
-const double kFeatEmaAlpha = 0.25 ;
+const double kFeatEmaAlpha = 0.25;
 const double kPosTol = 0.08;
 const int kOkFlashMs = 1200;
 const int kMpSendIntervalMs = 120;
@@ -51,8 +50,7 @@ const bool kLogLandmarks = true;
 const Duration kLmLogInterval = Duration(milliseconds: 800);
 String chicachuAssetOf(String variant) => 'assets/images/$variant.png';
 const String kCavityAsset = 'assets/images/cavity.png';
-enum _CamState { idle, requesting, denied, granted, noCamera, initError, ready }
-// ────────────────────────────────────────────────────────────────────
+enum _CamState { idle, requesting, denied, noCamera, initError, ready }
 
 class _FaceAnchors {
   final Offset leftEye;
@@ -71,20 +69,16 @@ class _FaceAnchors {
   });
 }
 
-// 1. StatefulWidget -> ConsumerStatefulWidget 으로 변경
 class LiveBrushPage extends ConsumerStatefulWidget {
   final String chicachuVariant;
   const LiveBrushPage({super.key, this.chicachuVariant = 'molar'});
 
   @override
-  // 2. State -> ConsumerState 로 변경
   ConsumerState<LiveBrushPage> createState() => _LiveBrushPageState();
 }
 
-// 3. State -> ConsumerState 로 변경
 class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     with WidgetsBindingObserver {
-  // (모든 변수 선언은 그대로 유지됩니다)
   late final StoryDirector _director;
   late final RadarProgressEngine _progress;
   final TtsManager _ttsMgr = TtsManager.instance;
@@ -102,21 +96,12 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
   bool _camDisposing = false;
   _CamState _camState = _CamState.idle;
   String _camError = '';
-
-  // (-) 이 변수들은 이제 Provider가 관리하므로 필요 없습니다.
-  // bool _modelReady = false;
-  // String _modelError = '';
-
   int _t = kSequenceLength;
   int _d = kFeatureDimension;
   late Float32List _seqBuf;
   int _seqCount = 0;
   int _seqWrite = 0;
-
-  // (-) predictor 인스턴스는 Provider를 통해 받습니다.
-  // late final BrushPredictor _pred;
   InferenceResult? _last;
-
   StreamSubscription<MpEvent>? _mpSub;
   DateTime _lastFaceUpdateAt = DateTime.fromMillisecondsSinceEpoch(0);
   Rect? _faceRectInPreview;
@@ -143,7 +128,11 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
   bool _previewEnabled = true;
   int _framesSent = 0;
 
-  bool _isCameraInitializing = false;
+  List<double>? _debugProbs;
+  List<String> _zoneLabels = [];
+
+  Timer? _timer;
+  int _elapsedSeconds = 0;
 
   String get _chicachuAvatarPath => chicachuAssetOf(widget.chicachuVariant);
 
@@ -161,8 +150,6 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-
-    // 진행/스토리 (그대로 유지)
     _progress = RadarProgressEngine(
       tickInterval: const Duration(seconds: 1),
       ticksTargetPerZone: 10,
@@ -179,20 +166,25 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     _progress.start();
     _director.start();
     _ttsMgr.init();
-
-    // (-) 모델 래퍼 초기화는 Provider가 담당
-    // _pred = BrushPredictor();
-
     if (kUseMpTasks) {
       _initMpTasks();
     }
-
-    // 4. 모델 로딩은 Provider에 맡기고, 카메라 부팅만 호출
+    _loadZoneLabels();
   }
 
-  // (모든 함수는 그대로 유지됩니다)
+  Future<void> _loadZoneLabels() async {
+    try {
+      final labelsString = await rootBundle.loadString('assets/brush_zone.txt');
+      setState(() {
+        _zoneLabels = labelsString.split('\n').where((s) => s.isNotEmpty).toList();
+      });
+    } catch (e) {
+      debugPrint("Failed to load zone labels: $e");
+    }
+  }
+
+
   Future<void> _initMpTasks() async {
-    // ... (기존 코드와 동일)
     try {
       final mp = MpTasksBridge.instance;
       try {
@@ -205,14 +197,13 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
           'useNativeCamera': false,
         });
       }
-
       _mpSub?.cancel();
       _mpSub = mp.events.listen((e) {
         if (e is MpFaceEvent) {
-          _onMpFace(e.landmarks); // [[nx,ny,nz]...], 0..1 정규화
+          _onMpFace(e.landmarks);
           _lastFaceUpdateAt = DateTime.now();
         } else if (e is MpHandEvent) {
-          _lastHandLandmarks = e.landmarks; // List<List<double>>
+          _lastHandLandmarks = e.landmarks;
           _logHandLmSample([e.landmarks]);
         }
       });
@@ -222,8 +213,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
   }
 
   void _onMpFace(List<List> landmarks) {
-    // ... (기존 코드와 동일)
-    if (landmarks.isEmpty) return;
+    if (landmarks.isEmpty || !mounted) return;
     final ptsNorm = <Offset>[];
     double minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
     for (final p in landmarks) {
@@ -283,7 +273,8 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
       _faceRectInPreview = mapped;
       _yawDeg = _pitchDeg = _rollDeg = null;
       if (msg == null) {
-        _okMsgUntil = DateTime.now().add(const Duration(milliseconds: kOkFlashMs));
+        _okMsgUntil =
+            DateTime.now().add(const Duration(milliseconds: kOkFlashMs));
         _gateMsg = null;
       } else {
         _gateMsg = msg;
@@ -302,96 +293,103 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     _director.dispose();
     _ttsMgr.dispose();
     _mpSub?.cancel();
+    _timer?.cancel();
     super.dispose();
   }
 
-  // 5. _boot() -> _bootCamera()로 이름 변경, 모델 로딩 로직 제거
+  void _startTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          _elapsedSeconds++;
+        });
+      }
+    });
+  }
+
+  void _stopTimer() {
+    _timer?.cancel();
+  }
+
+
   Future<void> _bootCamera() async {
+    if (_camState != _CamState.idle || !mounted) return;
+
     if (kDemoMode) {
       if (mounted) setState(() => _camState = _CamState.ready);
       _startDemo();
       return;
     }
 
-    if (mounted) {
-      setState(() {
-        _camState = _CamState.requesting;
-        _camError = '';
-      });
-    }
-
-    var status = await Permission.camera.status;
-    if (!status.isGranted) status = await Permission.camera.request();
-    if (!mounted) return;
-
-    if (status.isPermanentlyDenied || !status.isGranted) {
-      setState(() => _camState = _CamState.denied);
-      return;
-    }
-
-    setState(() => _camState = _CamState.granted);
-
-    // (-) 모델 로딩은 Provider가 하므로 카메라 초기화만 진행
-
-    // (+) 모델이 준비된 후에 스트림 시작 (build 메서드에서 처리)
-  }
-
-  Future<void> _initializeCameraAfterModel() async {
-    if (_isCameraInitializing || _cam != null) return;
-    _isCameraInitializing = true;
-
-    if (mounted) setState(() => _camState = _CamState.requesting);
-    var status = await Permission.camera.status;
-    if (!status.isGranted) status = await Permission.camera.request();
-    if (!mounted) return;
-
-    if (status.isPermanentlyDenied || !status.isGranted) {
-      if (mounted) setState(() => _camState = _CamState.denied);
-      return;
-    }
-    if (mounted) setState(() => _camState = _CamState.granted);
-
-    await _initCamera();
-  }
-
-  Future<void> _initCamera() async {
     try {
-      final cams = await availableCameras();
-      if (cams.isEmpty) {
-        if (mounted) setState(() { _camState = _CamState.noCamera; _camError = '카메라 장치를 찾을 수 없습니다.'; });
+      setState(() => _camState = _CamState.requesting);
+      var camStatus = await Permission.camera.status;
+      if (!camStatus.isGranted) camStatus = await Permission.camera.request();
+
+      var micStatus = await Permission.microphone.status;
+      if (!micStatus.isGranted) micStatus = await Permission.microphone.request();
+
+      if (!mounted) return;
+
+      if (!camStatus.isGranted || !micStatus.isGranted) {
+        setState(() => _camState = _CamState.denied);
         return;
       }
-      final front = cams.firstWhere((c) => c.lensDirection == CameraLensDirection.front, orElse: () => cams.first);
 
+      final cams = await availableCameras();
+      if (cams.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _camState = _CamState.noCamera;
+            _camError = '카메라 장치를 찾을 수 없습니다.';
+          });
+        }
+        return;
+      }
+      final front = cams.firstWhere(
+            (c) => c.lensDirection == CameraLensDirection.front,
+        orElse: () => cams.first,
+      );
       await _disposeCamSafely();
-
-      final controller = CameraController(front, ResolutionPreset.low, enableAudio: false, imageFormatGroup: ImageFormatGroup.yuv420);
+      final controller = CameraController(
+        front,
+        ResolutionPreset.low,
+        enableAudio: false,
+        imageFormatGroup: ImageFormatGroup.yuv420,
+      );
       await controller.initialize();
-
       if (!mounted) {
         await controller.dispose();
         return;
       }
       _cam = controller;
-
       await _startStream();
-
-      if (mounted) setState(() => _camState = _CamState.ready);
-
+      if (mounted) {
+        setState(() => _camState = _CamState.ready);
+        _startTimer();
+      }
     } catch (e, st) {
       debugPrint('Camera init error: $e\n$st');
-      if (mounted) setState(() { _camState = _CamState.initError; _camError = '$e'; });
+      if (mounted) {
+        String errorMessage = '$e';
+        if (e is CameraException) {
+          if (e.code == 'CameraAccessDenied') {
+            errorMessage =
+            '카메라 접근 권한이 거부되었습니다. 기기 설정에서 권한을 허용해주세요.';
+          }
+        }
+        setState(() {
+          _camState = _CamState.initError;
+          _camError = errorMessage;
+        });
+      }
     }
   }
-
-  // (-) _loadModel() 함수는 Provider로 이전되었으므로 전체 삭제
-  // Future<void> _loadModel() async { ... }
 
   Future<void> _startStream() async {
     final cam = _cam;
     if (cam == null || !cam.value.isInitialized || _streamOn) return;
-
-    // 6. (+) 스트림 시작 시 시퀀스 버퍼 초기화 로직 추가
     if (BrushModelEngine.I.isSequenceModel) {
       _t = BrushModelEngine.I.seqT;
       _d = BrushModelEngine.I.seqD;
@@ -399,25 +397,22 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
       _seqCount = 0;
       _seqWrite = 0;
     }
-
     try {
       _streamOn = true;
       await cam.startImageStream(_onImage);
     } catch (e) {
       _streamOn = false;
-      rethrow;
+      debugPrint('Error starting image stream: $e');
     }
   }
 
   Future<void> _disposeCamSafely() async {
-    // ... (기존 코드와 동일)
     final oldController = _cam;
     if (oldController == null) return;
     _streamOn = false;
     _camDisposing = true;
     _cam = null;
     if (mounted) setState(() {});
-    await Future.delayed(const Duration(milliseconds: 150));
     try {
       await oldController.stopImageStream();
     } catch (_) {}
@@ -436,38 +431,27 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
-    // ... (기존 코드와 동일)
-    if (_cam == null && state != AppLifecycleState.resumed) {
-      return;
-    }
-    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
-      await _disposeCamSafely();
-      try {
-        MpTasksBridge.instance.stop();
-      } catch (_) {}
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      _stopPipelines();
+      _stopTimer();
     } else if (state == AppLifecycleState.resumed) {
-      if (_cam == null) {
-        await _bootCamera(); // 7. _boot() -> _bootCamera()
-        if (kUseMpTasks) {
-          try {
-            await MpTasksBridge.instance.start(face: true, hands: true, useNativeCamera: false);
-          } on MissingPluginException {
-            const mc = MethodChannel('mp_tasks');
-            try {
-              await mc.invokeMethod('init', {
-                'face': true,
-                'hands': true,
-                'useNativeCamera': false,
-              });
-            } catch (_) {}
-          }
-        }
+      final modelReady = ref.read(brushPredictorProvider).hasValue;
+      if (modelReady && _cam == null) {
+        _bootCamera();
+      } else if (_cam != null) {
+        _startTimer();
+      }
+      if (kUseMpTasks) {
+        try {
+          await MpTasksBridge.instance
+              .start(face: true, hands: true, useNativeCamera: false);
+        } catch (_) {}
       }
     }
   }
 
   int _computeRotationDegrees() {
-    // ... (기존 코드와 동일)
     if (_cam == null) return 0;
     final sensor = _cam!.description.sensorOrientation;
     final isFront = _cam!.description.lensDirection == CameraLensDirection.front;
@@ -483,7 +467,6 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
   }
 
   Future<void> _sendFrameToMp(CameraImage img) async {
-    // ... (기존 코드와 동일)
     if (!kUseMpTasks || !Platform.isAndroid) return;
     final now = DateTime.now().millisecondsSinceEpoch;
     if (_mpSending || now - _mpLastSentMs < kMpSendIntervalMs) return;
@@ -498,12 +481,6 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
       final u = _swapUV ? img.planes[2] : img.planes[1];
       final v = _swapUV ? img.planes[1] : img.planes[2];
       _framesSent++;
-      if (_framesSent == 1) {
-        debugPrint(
-            '[MP] first frame rot=$rot wh=${img.width}x${img.height} '
-                'Yrow=${y.bytesPerRow}, Urow=${u.bytesPerRow}(ps=${u.bytesPerPixel}), '
-                'Vrow=${v.bytesPerRow}(ps=${v.bytesPerPixel}), swapUV=$_swapUV');
-      }
       await MpTasksBridge.instance.processYuv420Planes(
         y: y.bytes, u: u.bytes, v: v.bytes,
         width: img.width, height: img.height,
@@ -518,101 +495,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     }
   }
 
-  // (모든 유틸리티 함수들은 그대로 유지됩니다)
-  Float32List _resizeCHWNearest(Float32List src, int srcH, int srcW, int dstH, int dstW) {
-    // ... (기존 코드와 동일)
-    if (srcH == dstH && srcW == dstW) return src;
-    final out = Float32List(3 * dstH * dstW);
-    for (int c = 0; c < 3; c++) {
-      for (int y = 0; y < dstH; y++) {
-        final sy = (y * srcH) ~/ dstH;
-        for (int x = 0; x < dstW; x++) {
-          final sx = (x * srcW) ~/ dstW;
-          out[(c * dstH + y) * dstW + x] = src[(c * srcH + sy) * srcW + sx];
-        }
-      }
-    }
-    return out;
-  }
-  Float32List _chw224ToGrayHW(Float32List chw224) {
-    // ... (기존 코드와 동일)
-    const H = 224, W = 224;
-    final out = Float32List(H * W);
-    for (int y = 0; y < H; y++) {
-      for (int x = 0; x < W; x++) {
-        final r = chw224[(0 * H + y) * W + x];
-        final g = chw224[(1 * H + y) * W + x];
-        final b = chw224[(2 * H + y) * W + x];
-        out[y * W + x] = 0.2989 * r + 0.5870 * g + 0.1140 * b;
-      }
-    }
-    return out;
-  }
-  Float32List _resizeGRAYNearest(Float32List src, int srcH, int srcW, int dstH, int dstW) {
-    // ... (기존 코드와 동일)
-    if (srcH == dstH && srcW == dstW) return src;
-    final out = Float32List(dstH * dstW);
-    for (int y = 0; y < dstH; y++) {
-      final sy = (y * srcH) ~/ dstH;
-      for (int x = 0; x < dstW; x++) {
-        final sx = (x * srcW) ~/ dstW;
-        out[y * dstW + x] = src[sy * srcW + sx];
-      }
-    }
-    return out;
-  }
-  List<double> _yuv420ToCHW224Safe(CameraImage img, {bool mirror = true}) {
-    // ... (기존 코드와 동일)
-    const int D = 224;
-    final int srcW = img.width;
-    final int srcH = img.height;
-    final pY = img.planes[0], pU = img.planes[1], pV = img.planes[2];
-    final yBytes = pY.bytes, uBytes = pU.bytes, vBytes = pV.bytes;
-    final yRow = pY.bytesPerRow, uRow = pU.bytesPerRow, vRow = pV.bytesPerRow;
-    final uPix = pU.bytesPerPixel ?? 1, vPix = pV.bytesPerPixel ?? 1;
-    final out = List<double>.filled(3 * D * D, 0.0);
-    int idxR = 0, idxG = D * D, idxB = 2 * D * D;
-    for (int y = 0; y < D; y++) {
-      final double syf = (y + 0.5) * srcH / D;
-      final int sy = syf.floor().clamp(0, srcH - 1);
-      final int sy2 = (sy >> 1).clamp(0, (srcH >> 1) - 1);
-      for (int x = 0; x < D; x++) {
-        final int dx = mirror ? (D - 1 - x) : x;
-        final double sxf = (dx + 0.5) * srcW / D;
-        final int sx = sxf.floor().clamp(0, srcW - 1);
-        final int sx2 = (sx >> 1).clamp(0, (srcW >> 1) - 1);
-        final int yi = sy * yRow + sx;
-        final int ui = sy2 * uRow + sx2 * uPix;
-        final int vi = sy2 * vRow + sx2 * vPix;
-        final int Y = yBytes[yi], U = uBytes[ui], V = vBytes[vi];
-        final double c = (Y - 16).toDouble();
-        final double d = (U - 128).toDouble();
-        final double e = (V - 128).toDouble();
-        double r = (1.164 * c + 1.596 * e) / 255.0;
-        double g = (1.164 * c - 0.392 * d - 0.813 * e) / 255.0;
-        double b = (1.164 * c + 2.017 * d) / 255.0;
-        out[idxR++] = r.clamp(0.0, 1.0);
-        out[idxG++] = g.clamp(0.0, 1.0);
-        out[idxB++] = b.clamp(0.0, 1.0);
-      }
-    }
-    return out;
-  }
-  double _estimateLuma01(CameraImage img) {
-    // ... (기존 코드와 동일)
-    final pY = img.planes.first;
-    final y = pY.bytes;
-    if (y.isEmpty) return 1.0;
-    int sum = 0, cnt = 0;
-    final step = 16;
-    for (int i = 0; i < y.length; i += step) {
-      sum += y[i];
-      cnt++;
-    }
-    return (sum / (cnt * 255.0)).clamp(0.0, 1.0);
-  }
   Float32List _emaFeature(Float32List cur) {
-    // ... (기존 코드와 동일)
     if (_lastFeatD == null || _lastFeatD!.length != cur.length) {
       _lastFeatD = Float32List.fromList(cur);
       return cur;
@@ -626,8 +509,8 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     }
     return out;
   }
+
   Rect _targetRect(Size size) {
-    // ... (기존 코드와 동일)
     final w = size.width * 0.72;
     final h = size.height * 0.58;
     final cx = size.width * 0.5;
@@ -636,66 +519,49 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
   }
 
   Future<void> _onImage(CameraImage img) async {
-    // 8. (+) Provider로부터 predictor 인스턴스를 안전하게 가져옴
-    final pred = ref.read(brushPredictorProvider).value;
-
-    if (!mounted) return;
-    await _sendFrameToMp(img);
-    _lastLuma = _estimateLuma01(img);
-
-    final nowT = DateTime.now();
-    final stale = nowT.difference(_lastFaceUpdateAt) > const Duration(milliseconds: 800);
-    if (stale) {
-      setState(() {
-        _faceRectInPreview = null;
-        _gateMsg = '얼굴이 보이도록 카메라 중앙에 맞춰주세요';
-        _okMsgUntil = DateTime(0);
-      });
-      final gapMs = nowT.difference(_lastFaceUpdateAt).inMilliseconds;
-      if (gapMs > 1800 && _forceRotDeg == null) {
-        setState(() => _forceRotDeg = 270);
-        debugPrint('[MP][AutoFix] no face >1.8s → forceRotDeg=270');
-      } else if (gapMs > 3200 && !_swapUV) {
-        setState(() => _swapUV = true);
-        debugPrint('[MP][AutoFix] no face >3.2s → swapUV=true');
-      } else if (gapMs > 4600 && _previewEnabled) {
-        setState(() => _previewEnabled = false);
-        debugPrint('[MP][AutoFix] no face >4.6s → disable preview');
-      }
-    }
-
-    // 9. (+) 모델 준비 상태를 pred의 null 여부로 확인
-    if (_busy || pred == null || !BrushModelEngine.I.isReady) return;
-
-    _throttle = (_throttle + 1) % 2;
-    if (_throttle != 0) return;
-
+    if (_busy || !mounted) return;
     _busy = true;
+
     try {
-      final allowByDist = (_lastRel == null) ? true : _inRange;
-      final allowByLuma = _lastLuma >= kMinLuma;
-      final allowByStable = _lastStable;
-      final allow = allowByDist && allowByLuma && allowByStable;
-      _feedThisFrame = allow;
+      final pred = ref.read(brushPredictorProvider).value;
+      await _sendFrameToMp(img);
+      if (!mounted) return;
 
-      if (!allow) return;
+      final nowT = DateTime.now();
+      final stale = nowT.difference(_lastFaceUpdateAt) > const Duration(milliseconds: 800);
+      if (stale) {
+        setState(() {
+          _faceRectInPreview = null;
+          _gateMsg = '얼굴이 보이도록 카메라 중앙에 맞춰주세요';
+          _okMsgUntil = DateTime(0);
+        });
+      }
 
-      if (BrushModelEngine.I.isSequenceModel) {
-        final featD = _buildCoordFeatureD();
-        if (featD == null || featD.length != _d) return;
-        _pushFeature(featD);
+      if (pred != null && BrushModelEngine.I.isReady) {
+        _throttle = (_throttle + 1) % 2;
+        if (_throttle == 0) {
+          final allowByDist = (_lastRel == null) ? true : _inRange;
+          final allowByLuma = _estimateLuma01(img) >= kMinLuma;
+          final allowByStable = _lastStable;
+          final allow = allowByDist && allowByLuma && allowByStable;
+          _feedThisFrame = allow;
 
-        // 10. (+) pred.isReady -> pred != null 로 변경
-        if (_seqCount >= _t && pred != null) {
-          final window2D = _windowAs2D();
-          // 11. _pred -> pred 로 변경
-          final res = pred.inferFromWindow(window2D);
-          _last = res;
-          onModelProbsUpdate(res.probs);
-          onModelZoneUpdate(res.index);
+          if (allow) {
+            if (BrushModelEngine.I.isSequenceModel) {
+              final featD = _buildCoordFeatureD();
+              if (featD != null && featD.length == _d) {
+                _pushFeature(featD);
+                if (_seqCount >= _t) {
+                  final window2D = _windowAs2D();
+                  final res = pred.inferFromWindow(window2D);
+                  _last = res;
+                  onModelProbsUpdate(res.probs);
+                  onModelZoneUpdate(res.index);
+                }
+              }
+            }
+          }
         }
-      } else {
-        // ... (이미지 모델 경로는 기존과 동일)
       }
     } catch (e) {
       debugPrint('infer error: $e');
@@ -704,9 +570,11 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     }
   }
 
-  // (이하 모든 함수는 기존 코드와 동일하게 유지됩니다)
-  Rect _mapNormRectToPreview({ required Rect normRect, required Size previewSize, bool mirror = true,}) {
-    // ...
+  Rect _mapNormRectToPreview({
+    required Rect normRect,
+    required Size previewSize,
+    bool mirror = true,
+  }) {
     double l = normRect.left;
     double r = normRect.right;
     final t = normRect.top;
@@ -723,8 +591,8 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     final height = (b - t) * previewSize.height;
     return Rect.fromLTWH(left, top, width, height);
   }
+
   void _pushFeature(Float32List f) {
-    // ...
     final base = _seqWrite * _d;
     final n = (f.length < _d) ? f.length : _d;
     for (int i = 0; i < n; i++) {
@@ -736,8 +604,8 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     _seqWrite = (_seqWrite + 1) % _t;
     if (_seqCount < _t) _seqCount++;
   }
+
   List<List<double>> _windowAs2D() {
-    // ...
     final out = List.generate(_t, (_) => List.filled(_d, 0.0));
     final start = (_seqCount < _t) ? 0 : _seqWrite;
     for (int j = 0; j < _t; j++) {
@@ -749,25 +617,21 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     }
     return out;
   }
-  Float32List _linearizeSeq() {
-    // ...
-    final out = Float32List(_t * _d);
-    int outOff = 0;
-    final start = (_seqCount < _t) ? 0 : _seqWrite;
-    for (int j = 0; j < _t; j++) {
-      final frame = (start + j) % _t;
-      final off = frame * _d;
-      for (int k = 0; k < _d; k++) {
-        out[outOff + k] = _seqBuf[off + k];
-      }
-      outOff += _d;
+
+  void onModelZoneUpdate(int? zoneIndex) =>
+      _progress.reportZoneIndex(zoneIndex);
+
+  void onModelProbsUpdate(List<double> probs) {
+    _progress.reportZoneProbs(probs, threshold: 0.25);
+    if (mounted) {
+      setState(() {
+        _debugProbs = probs;
+      });
     }
-    return out;
   }
-  void onModelZoneUpdate(int? zoneIndex) => _progress.reportZoneIndex(zoneIndex);
-  void onModelProbsUpdate(List<double> probs) => _progress.reportZoneProbs(probs, threshold: 0.25);
+
+
   void _onStoryEvent(StoryEvent e) async {
-    // ...
     if (!mounted) return;
     if (e is ShowMessage) {
       _showDialogue(e, e.duration);
@@ -791,7 +655,8 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
       );
       HapticFeedback.selectionClick();
       await _ttsMgr.speak(text, speaker: Speaker.chikachu);
-      if (!_finaleTriggered && _spokenCompleteZoneIdxs.length >= kBrushZoneCount) {
+      if (!_finaleTriggered &&
+          _spokenCompleteZoneIdxs.length >= kBrushZoneCount) {
         _triggerFinaleOnce(source: 'zones-complete');
       }
     } else if (e is BossHudUpdate) {
@@ -802,30 +667,29 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
       }
     }
   }
+
   void _showDialogue(ShowMessage msg, Duration d) {
-    // ...
     if (!mounted) return;
     setState(() {
       _dialogue = msg;
       _dialogueUntil = DateTime.now().add(d);
     });
   }
+
   List<double> _normalizedScores(List<double> scores) {
-    // ...
     if (scores.any((v) => v > 1.0)) {
       return scores.map((v) => (v / 100.0).clamp(0.0, 1.0)).toList();
     }
     return scores.map((v) => v.clamp(0.0, 1.0)).toList();
   }
+
   bool _allFull(List<double> src) {
-    // ...
-    final vals = (src.any((v) => v > 1.0))
-        ? src.map((v) => v / 100.0).toList()
-        : src;
+    final vals =
+    (src.any((v) => v > 1.0)) ? src.map((v) => v / 100.0).toList() : src;
     return vals.length == kBrushZoneCount && vals.every((v) => v >= 0.999);
   }
+
   int _suggestActiveIndex(List<double> scores) {
-    // ...
     var idx = 0;
     var minVal = 999.0;
     final vals = scores;
@@ -837,38 +701,42 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     }
     return idx;
   }
-  void _triggerFinaleOnce({String source = 'unknown', FinaleResult? result}) async {
+
+  void _triggerFinaleOnce(
+      {String source = 'unknown', FinaleResult? result}) async {
     if (_finaleTriggered || !mounted) return;
     _finaleTriggered = true;
 
-    await _disposeCamSafely();
+    _stopTimer();
+
+    if (kDemoMode) {
+      _stopDemo();
+    } else {
+      await _disposeCamSafely();
+    }
     _progress.stop();
-
     setState(() => _finale = result ?? FinaleResult.win);
-
     final line = (result == FinaleResult.lose)
         ? '오늘은 아쉽지만, 내일은 꼭 이겨보자!'
         : '모든 구역 반짝반짝! 오늘 미션 완벽 클리어! ✨';
     _showDialogue(
-      ShowMessage(line, duration: const Duration(seconds: 3), speaker: Speaker.chikachu),
+      ShowMessage(line,
+          duration: const Duration(seconds: 3), speaker: Speaker.chikachu),
       const Duration(seconds: 3),
     );
     await _ttsMgr.speak(line, speaker: Speaker.chikachu);
     HapticFeedback.heavyImpact();
-
     if (!mounted) return;
     await Future.delayed(const Duration(seconds: 5));
-
     if (!mounted) return;
     final scores01 = _normalizedScores(_lastScores);
-
     context.push('/mouthwash', extra: scores01);
   }
+
   Timer? _demoTm;
   int _demoZone = 0, _demoTicks = 0;
   final _rnd = Random();
   void _startDemo() {
-    // ...
     _demoTm = Timer.periodic(const Duration(milliseconds: 200), (t) {
       _demoTicks++;
       if (_demoTicks >= 4 + _rnd.nextInt(3)) {
@@ -883,180 +751,253 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
       onModelZoneUpdate(_demoZone);
     });
   }
+
   void _stopDemo() {
-    // ...
     _demoTm?.cancel();
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(brushPredictorProvider, (_, state) {
+      if (state.hasValue && _camState == _CamState.idle) {
+        _bootCamera();
+      }
+    });
+
     final modelAsyncValue = ref.watch(brushPredictorProvider);
 
     return Scaffold(
       body: modelAsyncValue.when(
-        loading: () => const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('양치질 분석 모델을 준비 중입니다...'),
-            ],
-          ),
-        ),
-        error: (err, stack) => Center(child: Text('모델 로딩 실패: $err')),
+        loading: () => _buildStatusView('양치질 분석 모델을 준비 중입니다...'),
+        error: (err, stack) => _buildStatusView('모델 로딩 실패: $err'),
         data: (predictor) {
-          if (_camState == _CamState.idle) {
-            Future.microtask(() => _initializeCameraAfterModel());
-          }
-
           switch (_camState) {
             case _CamState.ready:
-              final cam = _cam;
-              final showPreview = !kDemoMode && !_camDisposing && cam != null && cam.value.isInitialized && _previewEnabled;
-              if (showPreview) {
-                return Stack(
-                  children: [
-                    Positioned.fill(child: CameraPreview(cam)),
-                    if (kShowFaceGuide)
-                      Positioned.fill(
-                        child: LayoutBuilder(
-                          builder: (context, c) {
-                            final previewSize = Size(c.maxWidth, c.maxHeight);
-                            return FaceAlignOverlay(
-                              previewSize: previewSize,
-                              faceBoxInPreview: _faceRectInPreview,
-                              yawDeg: _yawDeg,
-                              pitchDeg: _pitchDeg,
-                              rollDeg: _rollDeg,
-                            );
-                          },
-                        ),
-                      ),
-                    Positioned.fill(
-                      child: StreamBuilder<List<double>>(
-                        stream: _progress.progressStream,
-                        initialData: List.filled(kBrushZoneCount, 0.0),
-                        builder: (context, snapshot) {
-                          final scores01 = _normalizedScores(snapshot.data ?? []);
-                          final activeIdx = _suggestActiveIndex(scores01);
-                          return RadarOverlay(
-                            scores: scores01,
-                            activeIndex: activeIdx,
-                            expand: true,
-                            fallbackDemoIfEmpty: false,
-                            fx: RadarFx.radialPulse,
-                            showHighlight: true,
-                          );
-                        },
-                      ),
-                    ),
-                    if ((_gateMsg != null && _gateMsg!.isNotEmpty) || DateTime.now().isBefore(_okMsgUntil))
-                      Positioned(
-                        left: 20,
-                        right: 20,
-                        bottom: MediaQuery.of(context).padding.bottom + 32,
-                        child: AnimatedOpacity(
-                          opacity: 1.0,
-                          duration: const Duration(milliseconds: 150),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: DateTime.now().isBefore(_okMsgUntil)
-                                  ? const Color(0xFF2E7D32)
-                                  : Colors.black.withOpacity(0.55),
-                              borderRadius: BorderRadius.circular(14),
-                              boxShadow: const [
-                                BoxShadow(
-                                    color: Colors.black26,
-                                    blurRadius: 8,
-                                    offset: Offset(0, 3))
-                              ],
-                            ),
-                            child: Center(
-                              child: Text(
-                                DateTime.now().isBefore(_okMsgUntil)
-                                    ? '범위 내에 들어왔습니다!'
-                                    : _gateMsg!,
-                                textAlign: TextAlign.center,
-                                softWrap: true,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (_dialogue != null && DateTime.now().isBefore(_dialogueUntil))
-                      Positioned(
-                        left: 12, right: 12,
-                        bottom: MediaQuery.of(context).padding.bottom + 120,
-                        child: _DialogueOverlay(
-                          text: _dialogue!.text,
-                          avatarPath: _avatarForSpeaker(_dialogue!.speaker),
-                          alignLeft: _dialogue!.speaker != Speaker.cavitymon,
-                        ),
-                      ),
-                    Positioned(
-                      left: 16, right: 16,
-                      bottom: MediaQuery.of(context).padding.bottom + 16,
-                      child: _BossHud(advantage: _advantage),
-                    ),
-                    if (_finale != null)
-                      Positioned.fill(
-                        child: Container(
-                          color: Colors.black.withOpacity(0.55),
-                          alignment: Alignment.center,
-                          child: _FinaleView(result: _finale!),
-                        ),
-                      ),
-                  ],
-                );
-              }
-              return const Center(child: CircularProgressIndicator());
-
+              return _buildCameraPreview();
             case _CamState.denied:
-              return Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('카메라 권한이 필요합니다.'),
-                      const SizedBox(height: 8),
-                      TextButton(onPressed: openAppSettings, child: const Text('설정에서 권한 열기')),
-                    ],
-                  )
-              );
-
+              return _buildPermissionDeniedView();
             case _CamState.initError:
-              return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Text('카메라 초기화 실패\n$_camError'), TextButton(onPressed: _initializeCameraAfterModel, child: const Text('다시 시도'))]));
-
+              return _buildCameraErrorView();
+            case _CamState.noCamera:
+              return _buildStatusView('카메라 장치를 찾을 수 없습니다.', showRetry: true);
             default:
-              return const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('카메라를 준비 중입니다...'),
-                  ],
-                ),
-              );
+              return _buildStatusView('카메라를 준비 중입니다...');
           }
         },
       ),
     );
   }
 
-  // (이하 모든 함수는 기존 코드와 동일하게 유지됩니다)
+  Widget _buildStatusView(String message, {bool showRetry = false}) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (!showRetry) const CircularProgressIndicator(),
+          if (showRetry) const Icon(Icons.videocam_off, size: 48, color: Colors.black45),
+          const SizedBox(height: 16),
+          Text(message, style: const TextStyle(fontSize: 16)),
+          if (showRetry) ...[
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: _bootCamera,
+              child: const Text('다시 시도'),
+            ),
+          ]
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPermissionDeniedView() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('카메라와 마이크 권한이 필요합니다.'),
+          const SizedBox(height: 8),
+          TextButton(
+              onPressed: openAppSettings,
+              child: const Text('설정에서 권한 열기')),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCameraErrorView() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('카메라 초기화 실패\n$_camError'),
+          TextButton(onPressed: _bootCamera, child: const Text('다시 시도'))
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCameraPreview() {
+    final cam = _cam;
+    if (cam == null || !cam.value.isInitialized) {
+      return _buildStatusView('카메라 미리보기를 준비 중입니다...');
+    }
+
+    final now = DateTime.now();
+    final showDialogue = now.isBefore(_dialogueUntil) && _dialogue != null;
+    final showOk = now.isBefore(_okMsgUntil);
+    final showGuide = _gateMsg != null && _gateMsg!.isNotEmpty;
+
+    final minutes = (_elapsedSeconds ~/ 60).toString().padLeft(2, '0');
+    final seconds = (_elapsedSeconds % 60).toString().padLeft(2, '0');
+    final timerText = '$minutes:$seconds';
+
+    return Stack(
+      children: [
+        Positioned.fill(child: CameraPreview(cam)),
+
+        // ✨ [수정] kShowFaceGuide 상수를 사용하여 얼굴 가이드라인 표시 여부를 제어합니다.
+        if (kShowFaceGuide)
+          Positioned.fill(
+            child: LayoutBuilder(
+              builder: (context, c) {
+                final previewSize = Size(c.maxWidth, c.maxHeight);
+                return FaceAlignOverlay(
+                  previewSize: previewSize,
+                  faceBoxInPreview: _faceRectInPreview,
+                  // ✨ [추가] 얼굴이 가이드라인 안에 있는지 여부를 전달합니다.
+                  isFaceInGuide: _gateMsg == null && _inRange,
+                );
+              },
+            ),
+          ),
+
+        if (showGuide || showOk)
+          Positioned(
+            left: 20, right: 20,
+            bottom: MediaQuery.of(context).padding.bottom + 32,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: showOk ? const Color(0xFF2E7D32) : Colors.black.withOpacity(0.55),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Center(
+                child: Text(
+                  showOk ? '범위 내에 들어왔습니다!' : _gateMsg!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ),
+        Positioned.fill(
+          child: StreamBuilder<List<double>>(
+            stream: _progress.progressStream,
+            initialData: List.filled(kBrushZoneCount, 0.0),
+            builder: (context, snapshot) {
+              final scores01 = _normalizedScores(snapshot.data ?? []);
+              final activeIdx = _suggestActiveIndex(scores01);
+              return RadarOverlay(
+                scores: scores01,
+                activeIndex: activeIdx,
+                expand: true,
+                fallbackDemoIfEmpty: false,
+                fx: RadarFx.radialPulse,
+                showHighlight: true,
+              );
+            },
+          ),
+        ),
+
+        if (_debugProbs != null && _zoneLabels.isNotEmpty)
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 10,
+            left: 10,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (int i = 0; i < _debugProbs!.length; i++)
+                    Text(
+                      '${_zoneLabels.length > i ? _zoneLabels[i] : 'Zone $i'}: ${(_debugProbs![i] * 100).toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        color: _debugProbs![i] > 0.5 ? Colors.greenAccent : Colors.white,
+                        fontSize: 12,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+
+        Positioned(
+          top: MediaQuery.of(context).padding.top + 10,
+          right: 10,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.6),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              timerText,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+
+        if (showDialogue)
+          Positioned(
+            left: 12, right: 12,
+            bottom: MediaQuery.of(context).padding.bottom + 120,
+            child: _DialogueOverlay(
+              text: _dialogue!.text,
+              avatarPath: _avatarForSpeaker(_dialogue!.speaker),
+              alignLeft: _dialogue!.speaker != Speaker.cavitymon,
+            ),
+          ),
+        Positioned(
+          left: 16, right: 16,
+          bottom: MediaQuery.of(context).padding.bottom + 16,
+          child: _BossHud(advantage: _advantage),
+        ),
+        if (_finale != null)
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withOpacity(0.55),
+              alignment: Alignment.center,
+              child: _FinaleView(result: _finale!),
+            ),
+          ),
+      ],
+    );
+  }
+
   Rect _emaRect(Rect? prev, Rect cur, double alpha) {
     if (prev == null) return cur;
     double lerp(double a, double b) => a * (1 - alpha) + b * alpha;
-    return Rect.fromLTRB( lerp(prev.left, cur.left), lerp(prev.top, cur.top), lerp(prev.right, cur.right), lerp(prev.bottom, cur.bottom),);
+    return Rect.fromLTRB(lerp(prev.left, cur.left), lerp(prev.top, cur.top),
+        lerp(prev.right, cur.right), lerp(prev.bottom, cur.bottom));
+  }
+  double _estimateLuma01(CameraImage img) {
+    final pY = img.planes.first;
+    final y = pY.bytes;
+    if (y.isEmpty) return 1.0;
+    int sum = 0, cnt = 0;
+    for (int i = 0; i < y.length; i += 16) {
+      sum += y[i];
+      cnt++;
+    }
+    return (sum / (cnt * 255.0)).clamp(0.0, 1.0);
   }
   _FaceAnchors? _getFaceAnchors() {
     final faceLms = _lastFaceLandmarks2D;
@@ -1076,34 +1017,36 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
         );
       }
     }
-    if (boxNorm != null) {
-      final cx = boxNorm.center.dx, cy = boxNorm.center.dy;
-      final w = boxNorm.width, h = boxNorm.height;
-      return _FaceAnchors(
-        leftEye: Offset(boxNorm.left + w * 0.35, boxNorm.top + h * 0.35),
-        rightEye: Offset(boxNorm.left + w * 0.65, boxNorm.top + h * 0.35),
-        nose: Offset(cx, boxNorm.top + h * 0.52),
-        chin: Offset(cx, boxNorm.bottom),
-        mouthLeft: Offset(boxNorm.left + w * 0.40, boxNorm.top + h * 0.75),
-        mouthRight: Offset(boxNorm.left + w * 0.60, boxNorm.top + h * 0.75),
-      );
-    }
     return null;
   }
   Float32List? _buildCoordFeatureD() {
     final anchors = _getFaceAnchors();
     if (anchors == null) {
-      if (kLogLandmarks) {
-        debugPrint('[FeatureBuild] SKIP: face anchors=null, hand=${_lastHandLandmarks?.length}');
-      }
       return null;
     }
     final handLmsNorm = _lastHandLandmarks;
+
+    // ✨ [수정] 모든 손 랜드마크의 x좌표를 좌우 반전시킵니다. (1.0 - x)
     final List<Offset> handPts = (handLmsNorm == null || handLmsNorm.length < 21)
         ? List<Offset>.filled(21, Offset.zero)
-        : handLmsNorm.map((p) => Offset( (p[0] as num).toDouble().clamp(0.0, 1.0), (p[1] as num).toDouble().clamp(0.0, 1.0),)).toList();
-    final List<Offset> pts = [ ...handPts, anchors.leftEye, anchors.rightEye, anchors.nose, anchors.chin, anchors.mouthLeft, anchors.mouthRight,];
-    final nose = anchors.nose, leftEye = anchors.leftEye, rightEye = anchors.rightEye, chin = anchors.chin;
+        : handLmsNorm.map((p) => Offset(1.0 - (p[0] as num).toDouble().clamp(0.0, 1.0), (p[1] as num).toDouble().clamp(0.0, 1.0))).toList();
+
+    // ✨ [수정] 모든 얼굴 랜드마크의 x좌표도 동일하게 좌우 반전시킵니다.
+    final List<Offset> facePts = [
+      Offset(1.0 - anchors.leftEye.dx, anchors.leftEye.dy),
+      Offset(1.0 - anchors.rightEye.dx, anchors.rightEye.dy),
+      Offset(1.0 - anchors.nose.dx, anchors.nose.dy),
+      Offset(1.0 - anchors.chin.dx, anchors.chin.dy),
+      Offset(1.0 - anchors.mouthLeft.dx, anchors.mouthLeft.dy),
+      Offset(1.0 - anchors.mouthRight.dx, anchors.mouthRight.dy),
+    ];
+
+    final List<Offset> pts = [...handPts, ...facePts];
+    final nose = facePts[2]; // 반전된 코의 좌표
+    final leftEye = facePts[0];
+    final rightEye = facePts[1];
+    final chin = facePts[3];
+
     final translated = pts.map((p) => p - nose).toList();
     final eyeVec = rightEye - leftEye;
     final scale = eyeVec.distance;
@@ -1144,58 +1087,30 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     return _emaFeature(out);
   }
   void _logFaceLmSampleNorm({ required Rect faceBoxNorm, required List<Offset> ptsNorm, required double rel,}) {
-    // ...
     if (!kLogLandmarks) return;
     final now = DateTime.now();
     if (now.isBefore(_lastFaceLmLogAt.add(kLmLogInterval))) return;
     _lastFaceLmLogAt = now;
-    final n = ptsNorm.length;
-    final picks = <int>[ 0, (n * 0.25).floor(), (n * 0.5).floor(), (n * 0.75).floor(), n - 1,].where((i) => i >= 0 && i < n).toList();
-    final samples = picks.map((i) {
-      final p = ptsNorm[i];
-      return '#$i(${p.dx.toStringAsFixed(3)}, ${p.dy.toStringAsFixed(3)})';
-    }).join(', ');
-    debugPrint(
-      '[MP:FACE] boxN=[L${faceBoxNorm.left.toStringAsFixed(3)},'
-          'T${faceBoxNorm.top.toStringAsFixed(3)},'
-          'W${faceBoxNorm.width.toStringAsFixed(3)},'
-          'H${faceBoxNorm.height.toStringAsFixed(3)}] '
-          'rel=${(rel * 100).toStringAsFixed(0)}% '
-          'pts=$n samples: $samples',
-    );
   }
   void _logHandLmSample(List<List> hands) {
-    // ...
     if (!kLogLandmarks) return;
     final now = DateTime.now();
     if (now.isBefore(_lastHandLmLogAt.add(kLmLogInterval))) return;
     _lastHandLmLogAt = now;
-    final handCount = hands.length;
-    final head = StringBuffer('[MP:HAND] hands=$handCount ');
-    for (int h = 0; h < handCount; h++) {
-      final pts = hands[h].cast<List>();
-      if (pts.isEmpty) continue;
-      final n = pts.length;
-      final picks = <int>[0, n - 1].where((i) => i >= 0 && i < n).toList();
-      final samples = picks.map((i) {
-        final p = pts[i];
-        final nx = (p[0] as num).toDouble();
-        final ny = (p[1] as num).toDouble();
-        final nz = (p.length >= 3) ? (p[2] as num).toDouble() : double.nan;
-        return '#$i(${nx.toStringAsFixed(3)}, ${ny.toStringAsFixed(3)}, z=${nz.isNaN ? "n/a" : nz.toStringAsFixed(4)})';
-      }).join(', ');
-      head.write(' | H$h pts=$n samples: $samples');
-    }
-    debugPrint(head.toString());
   }
 }
-// (이하 모든 위젯 클래스는 기존 코드와 동일하게 유지됩니다)
+
 class FaceAlignOverlay extends StatelessWidget {
-  // ...
   final Size previewSize;
   final Rect? faceBoxInPreview;
-  final double? yawDeg, pitchDeg, rollDeg;
-  const FaceAlignOverlay({ super.key, required this.previewSize, required this.faceBoxInPreview, this.yawDeg, this.pitchDeg, this.rollDeg,});
+  // ✨ [수정] isFaceInGuide 파라미터를 추가하여 얼굴 위치 상태를 받습니다.
+  final bool isFaceInGuide;
+  const FaceAlignOverlay({
+    super.key,
+    required this.previewSize,
+    required this.faceBoxInPreview,
+    this.isFaceInGuide = false,
+  });
   @override
   Widget build(BuildContext context) {
     return IgnorePointer(
@@ -1212,7 +1127,8 @@ class FaceAlignOverlay extends StatelessWidget {
               size: previewSize,
               painter: _FaceBoxPainter(
                 faceRect: faceBoxInPreview!,
-                ok: true,
+                // ✨ [수정] isFaceInGuide 값에 따라 테두리 색상을 결정합니다.
+                ok: isFaceInGuide,
               ),
             ),
         ],
@@ -1227,17 +1143,27 @@ class FaceAlignOverlay extends StatelessWidget {
     return Rect.fromCenter(center: Offset(cx, cy), width: w, height: h);
   }
 }
+
 class _GuidePainter extends CustomPainter {
-  // ...
   final Rect targetRect;
   const _GuidePainter({required this.targetRect});
   @override
-  void paint(Canvas canvas, Size size) {}
+  void paint(Canvas canvas, Size size) {
+    // ✨ [수정] 비어있던 paint 함수에 고정된 가이드라인을 그리는 코드를 추가합니다.
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..color = Colors.white.withOpacity(0.8);
+
+    // 타원형 가이드라인을 그립니다.
+    final rrect = RRect.fromRectAndRadius(targetRect, const Radius.circular(150));
+    canvas.drawRRect(rrect, paint);
+  }
   @override
   bool shouldRepaint(covariant _GuidePainter oldDelegate) => oldDelegate.targetRect != targetRect;
 }
+
 class _FaceBoxPainter extends CustomPainter {
-  // ...
   final Rect faceRect;
   final bool ok;
   const _FaceBoxPainter({ required this.faceRect, required this.ok,});
@@ -1246,6 +1172,7 @@ class _FaceBoxPainter extends CustomPainter {
     final p = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
+    // ✨ [수정] ok 값에 따라 색상을 녹색 또는 주황색으로 변경합니다.
       ..color = ok ? const Color(0xFF00E676) : const Color(0xFFFF7043);
     final rrect = RRect.fromRectAndRadius(faceRect, const Radius.circular(12));
     canvas.drawRRect(rrect, p);
@@ -1255,8 +1182,9 @@ class _FaceBoxPainter extends CustomPainter {
     return oldDelegate.faceRect != faceRect || oldDelegate.ok != ok;
   }
 }
+
+// (이하 위젯 클래스들은 기존과 동일)
 class _BossHud extends StatelessWidget {
-  // ...
   final double advantage;
   const _BossHud({required this.advantage});
   @override
@@ -1278,7 +1206,6 @@ class _BossHud extends StatelessWidget {
   }
 }
 class _FinaleView extends StatelessWidget {
-  // ...
   final FinaleResult result;
   const _FinaleView({required this.result});
   @override
@@ -1302,7 +1229,6 @@ class _FinaleView extends StatelessWidget {
   }
 }
 class _DialogueOverlay extends StatelessWidget {
-  // ...
   final String text;
   final String avatarPath;
   final bool alignLeft;
@@ -1328,7 +1254,6 @@ class _DialogueOverlay extends StatelessWidget {
   }
 }
 class _SpeechBubble extends StatelessWidget {
-  // ...
   final String text;
   final bool tailOnLeft;
   const _SpeechBubble({required this.text, required this.tailOnLeft});
@@ -1359,7 +1284,6 @@ class _SpeechBubble extends StatelessWidget {
   }
 }
 class _TailPainter extends CustomPainter {
-  // ...
   final Color color;
   final bool isLeft;
   const _TailPainter({required this.color, required this.isLeft});

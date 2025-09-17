@@ -1,95 +1,130 @@
-// 📍 lib/features/brush_guide/presentation/brush_result_page.dart
-// (파일 전체를 이 코드로 교체하세요)
+// 📍 lib/features/brush_guide/presentation/brush_result_page.dart (전체 파일)
 
 import 'package:flutter/material.dart';
-import 'radar_overlay.dart'; // 같은 폴더라 상대경로로 import
+import 'package:go_router/go_router.dart';
+import 'radar_overlay.dart';
+
+import 'package:chicachew/core/storage/active_profile_store.dart';
+import 'package:chicachew/core/records/brush_record_store.dart';
+import 'package:chicachew/core/bp/user_bp_store.dart';
+import 'package:chicachew/core/bp/user_streak_store.dart';
 
 const List<String> kBrushZoneLabelsKo = [
-  '왼쪽 바깥쪽 \n치아',           // 0: 왼쪽-협측
-  '앞니 바깥쪽 \n치아',           // 1: 중앙-협측
-  '오른쪽 바깥쪽 \n치아',          // 2: 오른쪽-협측
-  '오른쪽 입천장쪽 \n치아',          // 3: 오른쪽-구개측
-  '앞니 입천장쪽 \n치아',             // 4: 중앙-구개측
-  '왼쪽 입천장쪽 \n치아',           // 5: 왼쪽-구개측
-  '왼쪽 혀쪽 \n치아',           // 6: 왼쪽-설측
-  '앞니 혀쪽 \n치아',             // 7: 중앙-설측
-  '오른쪽 혀쪽 \n치아',          // 8: 오른쪽-설측
-  '오른쪽 위 \n씹는면', // 9: 오른쪽-위-씹는면
-  '왼쪽 위 \n씹는면',   // 10: 왼쪽-위-씹는면
-  '왼쪽 아래 \n씹는면', // 11: 왼쪽-아래-씹는면
-  '오른쪽 아래 \n씹는면',// 12: 오른쪽-아래-씹는면
+  '왼쪽 바깥쪽 \n치아', '앞니 바깥쪽 \n치아', '오른쪽 바깥쪽 \n치아',
+  '오른쪽 입천장쪽 \n치아', '앞니 입천장쪽 \n치아', '왼쪽 입천장쪽 \n치아',
+  '왼쪽 혀쪽 \n치아', '앞니 혀쪽 \n치아', '오른쪽 혀쪽 \n치아',
+  '오른쪽 위 \n씹는면', '왼쪽 위 \n씹는면', '왼쪽 아래 \n씹는면', '오른쪽 아래 \n씹는면',
 ];
 
 String toPercentString(double v) =>
     '${(v.clamp(0.0, 1.0) * 100).toStringAsFixed(0)}%';
 
-class BrushResultPage extends StatelessWidget {
+class BrushResultPage extends StatefulWidget {
   final List<double> scores01;
   final double threshold;
-  final VoidCallback? onDone;
 
   const BrushResultPage({
     super.key,
     required this.scores01,
     this.threshold = 0.6,
-    this.onDone,
   });
+
+  @override
+  State<BrushResultPage> createState() => _BrushResultPageState();
+}
+
+class _BrushResultPageState extends State<BrushResultPage> {
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _processBrushCompletion();
+    });
+  }
+
+  Future<void> _processBrushCompletion() async {
+    final activeIndex = await ActiveProfileStore.getIndex();
+    if (activeIndex == null || activeIndex < 0) return;
+
+    final userKey = 'idx$activeIndex';
+    final now = DateTime.now();
+
+    final record = BrushRecord(
+      timestamp: now,
+      scores: widget.scores01,
+      durationSec: 120,
+    );
+    await BrushRecordStore.addRecord(userKey, record);
+
+    await UserBpStore.add(userKey, 5, note: '양치 완료 보상');
+
+    // ✅ [수정] 1. 먼저 오늘 날짜를 기록합니다 (반환값 없음)
+    await UserStreakStore.markToday(userKey);
+    // ✅ [수정] 2. 그 다음에 업데이트된 스트릭 정보를 조회합니다.
+    final (streakDays, _) = await UserStreakStore.info(userKey);
+
+    if (!mounted) return;
+
+    final currentStreak = streakDays ?? 0;
+    final streakMsg = currentStreak > 1 ? '$currentStreak일 연속!' : '첫 스트릭 시작!';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('잘했어요! +5 BP 적립! ($streakMsg)')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final weakIndices = <int>[];
-    for (int i = 0; i < scores01.length; i++) {
-      if ((scores01[i]).clamp(0.0, 1.0) < threshold) weakIndices.add(i);
+    for (int i = 0; i < widget.scores01.length; i++) {
+      if ((widget.scores01[i]).clamp(0.0, 1.0) < widget.threshold) {
+        weakIndices.add(i);
+      }
     }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('오늘의 양치 결과'),
         centerTitle: true,
+        automaticallyImplyLeading: false,
       ),
       body: SafeArea(
         child: Column(
           children: [
             const SizedBox(height: 16),
-
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: AspectRatio(
                 aspectRatio: 1,
                 child: RadarOverlay(
-                  scores: scores01.map((v) => v.clamp(0.0, 1.0)).toList(),
-                  activeIndex: _minIndex(scores01),
+                  scores: widget.scores01.map((v) => v.clamp(0.0, 1.0)).toList(),
+                  activeIndex: _minIndex(widget.scores01),
                   expand: true,
                   fallbackDemoIfEmpty: false,
                   fx: RadarFx.none,
                   showHighlight: false,
-                  labels: kBrushZoneLabelsKo, // ✅ 여기에 라벨 목록을 전달합니다.
+                  labels: kBrushZoneLabelsKo,
                 ),
               ),
             ),
-
             const SizedBox(height: 12),
-
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0),
               child: Text(
-                '전체 평균: ${toPercentString(_avg(scores01))}  /  최소: ${toPercentString(scores01.reduce((a, b) => a < b ? a : b))}',
+                '전체 평균: ${toPercentString(_avg(widget.scores01))} / 최소: ${toPercentString(widget.scores01.reduce((a, b) => a < b ? a : b))}',
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
-
             const SizedBox(height: 8),
-
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: (weakIndices.isEmpty)
                     ? const _CongratsView()
-                // ✅ 라벨이 길어져도 UI가 깨지지 않도록 수정
-                    : _WeakList(weakIndices: weakIndices, scores01: scores01),
+                    : _WeakList(weakIndices: weakIndices, scores01: widget.scores01),
               ),
             ),
-
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
               child: SizedBox(
@@ -99,10 +134,7 @@ class BrushResultPage extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  onPressed: () {
-                    onDone?.call();
-                    Navigator.pop(context);
-                  },
+                  onPressed: () => context.go('/home'),
                   child: const Text('완료', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ),
@@ -113,17 +145,20 @@ class BrushResultPage extends StatelessWidget {
     );
   }
 
-  static int _minIndex(List<double> v) {
+  int _minIndex(List<double> v) {
     var idx = 0;
     var minV = 999.0;
     for (int i = 0; i < v.length; i++) {
       final x = v[i];
-      if (x < minV) { minV = x; idx = i; }
+      if (x < minV) {
+        minV = x;
+        idx = i;
+      }
     }
     return idx;
   }
 
-  static double _avg(List<double> v) =>
+  double _avg(List<double> v) =>
       v.isEmpty ? 0.0 : v.reduce((a, b) => a + b) / v.length;
 }
 
@@ -161,7 +196,6 @@ class _WeakList extends StatelessWidget {
       itemBuilder: (context, i) {
         final idx = weakIndices[i];
         final label = (idx >= 0 && idx < kBrushZoneLabelsKo.length)
-        // ✅ 줄바꿈 문자를 공백으로 바꿔서 한 줄로 보이게 함
             ? kBrushZoneLabelsKo[idx].replaceAll('\n', ' ')
             : '구역 ${idx + 1}';
         final percent = toPercentString(scores01[idx]);

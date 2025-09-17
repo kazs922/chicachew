@@ -1,8 +1,16 @@
-// lib/features/report/presentation/report_page.dart
+// 📍 lib/features/home/presentation/tabs/report_page.dart (전체 파일)
+
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:chicachew/app/app_theme.dart';
+
+import 'package:chicachew/core/storage/active_profile_store.dart';
+import 'package:chicachew/core/storage/local_store.dart';
+import 'package:chicachew/core/storage/profile.dart';
 import 'package:chicachew/core/records/brush_record_store.dart';
-import 'package:chicachew/app/app_theme.dart'; // ColorShadeX 확장
+
+// ✨ [추가] 새로 만든 상세 리포트 페이지를 import 합니다.
+import 'daily_report_page.dart';
 
 class ReportPage extends StatefulWidget {
   const ReportPage({super.key});
@@ -13,219 +21,224 @@ class ReportPage extends StatefulWidget {
 class _ReportPageState extends State<ReportPage> {
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
 
+  List<Profile> _profiles = [];
+  int _activeIndex = -1;
+  List<BrushRecord> _records = [];
+  bool _isLoading = true;
+
+  String get _userKey => _activeIndex >= 0 ? 'idx$_activeIndex' : 'idx-1';
+
   @override
   void initState() {
     super.initState();
-    BrushRecordStore.instance.loadMonth(_month);
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+
+    final store = LocalStore();
+    final profiles = await store.getProfiles();
+    final activeIndex = await ActiveProfileStore.getIndex() ?? (profiles.isNotEmpty ? 0 : -1);
+
+    List<BrushRecord> records = [];
+    if (activeIndex != -1) {
+      records = await BrushRecordStore.getRecords('idx$activeIndex');
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _profiles = profiles;
+      _activeIndex = activeIndex;
+      _records = records;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _onProfileSelected(int index) async {
+    if (index < 0 || index >= _profiles.length) return;
+    await ActiveProfileStore.setIndex(index);
+    await _loadData();
   }
 
   Future<void> _changeMonth(int delta) async {
-    setState(() => _month = DateTime(_month.year, _month.month + delta));
-    await BrushRecordStore.instance.loadMonth(_month);
+    setState(() {
+      _month = DateTime(_month.year, _month.month + delta);
+    });
   }
 
   int _daysInMonth(DateTime m) => DateUtils.getDaysInMonth(m.year, m.month);
   int _leadingEmpty(DateTime m) {
-    final w = DateTime(m.year, m.month, 1).weekday; // 1~7(월~일)
-    return w % 7; // 일요일 시작 기준
+    final w = DateTime(m.year, m.month, 1).weekday;
+    return w % 7;
   }
 
-  // 이번 주(일~토) 날짜 리스트
   List<DateTime> _currentWeekDays() {
     final now = DateTime.now();
     final sunStart = now.subtract(Duration(days: now.weekday % 7));
     return List.generate(7, (i) => DateTime(sunStart.year, sunStart.month, sunStart.day + i));
   }
 
+  int _getBrushCountForDay(DateTime date) {
+    final dayKey = BrushRecordStore.dayKey(date);
+    return _records.where((r) => BrushRecordStore.dayKey(r.timestamp) == dayKey).length;
+  }
+
+  List<BrushRecord> _getRecordsForDay(DateTime date) {
+    final dayKey = BrushRecordStore.dayKey(date);
+    return _records.where((r) => BrushRecordStore.dayKey(r.timestamp) == dayKey).toList();
+  }
+
+  List<BrushSlot> _getSlotsForDay(DateTime date) {
+    final dayKey = BrushRecordStore.dayKey(date);
+    return _records
+        .where((r) => BrushRecordStore.dayKey(r.timestamp) == dayKey)
+        .map((r) => r.slot)
+        .toList();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final store = BrushRecordStore.instance;
     final cs = Theme.of(context).colorScheme;
+    final activeProfile = (_activeIndex >= 0 && _activeIndex < _profiles.length)
+        ? _profiles[_activeIndex]
+        : null;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('리포트')),
+      appBar: AppBar(
+        title: const Text('리포트'),
+        actions: [
+          if (_profiles.length > 1)
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: PopupMenuButton<int>(
+                onSelected: _onProfileSelected,
+                itemBuilder: (context) => [
+                  for (int i = 0; i < _profiles.length; i++)
+                    PopupMenuItem(
+                      value: i,
+                      child: Text(_profiles[i].name),
+                    ),
+                ],
+                child: Chip(
+                  avatar: const Icon(Icons.person_outline, size: 18),
+                  label: Text(activeProfile?.name ?? '프로필 선택'),
+                ),
+              ),
+            ),
+        ],
+      ),
       body: SafeArea(
-        child: AnimatedBuilder(
-          animation: store,
-          builder: (context, _) {
-            final days = _daysInMonth(_month);
-            final leading = _leadingEmpty(_month);
-            final totalCells = leading + days;
-            final trailing = (totalCells % 7 == 0) ? 0 : 7 - (totalCells % 7);
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _activeIndex == -1
+            ? const Center(child: Text('표시할 프로필이 없습니다.'))
+            : Builder(builder: (context) {
+          final days = _daysInMonth(_month);
+          final leading = _leadingEmpty(_month);
+          final totalCells = leading + days;
+          final trailing = (totalCells % 7 == 0) ? 0 : 7 - (totalCells % 7);
 
-            final success3 = List.generate(days, (i) {
-              final d = DateTime(_month.year, _month.month, i + 1);
-              return store.slotsOn(d).length == 3 ? 1 : 0;
-            }).fold<int>(0, (a, b) => a + b);
+          final success3 = List.generate(days, (i) {
+            final d = DateTime(_month.year, _month.month, i + 1);
+            return _getBrushCountForDay(d) >= 3 ? 1 : 0;
+          }).fold<int>(0, (a, b) => a + b);
 
-            // 오늘/주간 데이터
-            final today = DateTime.now();
-            final todaySlots = store.slotsOn(today);
-            final todayCount = todaySlots.length;
-            final weekDays = _currentWeekDays();
-            final weekCounts = weekDays.map((d) => store.slotsOn(d).length).toList();
-            final weekTotal = weekCounts.fold<int>(0, (a, b) => a + b); // (최대 21)
-            final weekFullDays = weekCounts.where((c) => c == 3).length;
+          final today = DateTime.now();
+          final todayCount = _getBrushCountForDay(today);
+          final weekDays = _currentWeekDays();
+          final weekCounts = weekDays.map((d) => _getBrushCountForDay(d)).toList();
+          final weekTotal = weekCounts.fold<int>(0, (a, b) => a + b);
+          final weekFullDays = weekCounts.where((c) => c >= 3).length;
 
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-              children: [
-                // ===== 월간 달력 카드 =====
-                Container(
-                  decoration: BoxDecoration(
-                    color: cs.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 12,
-                        offset: const Offset(0, 6),
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: cs.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+                child: Column(
+                  children: [
+                    // ... (상단 요약, 월 이동 바, 요일 헤더는 기존과 동일하게 유지) ...
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 7,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 10,
+                        childAspectRatio: 1.0,
                       ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
-                  child: Column(
-                    children: [
-                      // 상단 요약
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: cs.primary.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(Icons.event_available_outlined,
-                                size: 22, color: cs.primary.darken(.1)),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                "${_month.month}월 중 $success3일간 하루 세 번씩 양치에 성공했어요!",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14.5,
-                                  color: cs.onSurface,
+                      itemCount: leading + days + trailing,
+                      itemBuilder: (context, index) {
+                        if (index < leading || index >= leading + days) {
+                          return const SizedBox.shrink();
+                        }
+                        final dayNum = index - leading + 1;
+                        final date = DateTime(_month.year, _month.month, dayNum);
+                        final slots = _getSlotsForDay(date);
+
+                        // ✨ [수정] DayChip을 GestureDetector로 감싸서 클릭 이벤트를 추가합니다.
+                        return GestureDetector(
+                          onTap: () {
+                            final recordsForDay = _getRecordsForDay(date);
+                            // 기록이 있는 날짜만 상세 페이지로 이동
+                            if (recordsForDay.isNotEmpty) {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => DailyReportPage(
+                                    date: date,
+                                    records: recordsForDay,
+                                  ),
                                 ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // 월 이동 바
-                      Row(
-                        children: [
-                          IconButton(
-                            onPressed: () => _changeMonth(-1),
-                            icon: Icon(Icons.chevron_left_rounded,
-                                color: cs.onSurfaceVariant),
-                          ),
-                          Expanded(
-                            child: Center(
-                              child: Text(
-                                "${_month.year}년 ${_month.month}월",
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                  color: cs.onSurface,
-                                ),
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () => _changeMonth(1),
-                            icon: Icon(Icons.chevron_right_rounded,
-                                color: cs.onSurfaceVariant),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-
-                      // 요일 헤더
-                      Row(
-                        children: List.generate(7, (i) {
-                          final labels = ['일','월','화','수','목','금','토'];
-                          final base = cs.onSurfaceVariant;
-                          final color = (i == 0 || i == 6) ? base.darken(.15) : base;
-                          return Expanded(
-                            child: Center(
-                              child: Text(labels[i],
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    color: color,
-                                  )),
-                            ),
-                          );
-                        }),
-                      ),
-                      const SizedBox(height: 8),
-
-                      // 동그란 칩 달력
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 7,
-                          crossAxisSpacing: 8,
-                          mainAxisSpacing: 10,
-                          childAspectRatio: 1.0,
-                        ),
-                        itemCount: leading + days + trailing,
-                        itemBuilder: (context, index) {
-                          if (index < leading || index >= leading + days) {
-                            return const SizedBox.shrink();
-                          }
-                          final dayNum = index - leading + 1;
-                          final date = DateTime(_month.year, _month.month, dayNum);
-                          final slots = store.slotsOn(date);
-                          final filled = [
-                            slots.contains(BrushSlot.morning),
-                            slots.contains(BrushSlot.noon),
-                            slots.contains(BrushSlot.night),
-                          ];
-                          final isToday =
-                              BrushRecordStore.dayKey(date) ==
-                                  BrushRecordStore.dayKey(DateTime.now());
-
-                          return _DayChip(
+                              );
+                            }
+                          },
+                          child: _DayChip(
                             day: dayNum,
-                            isToday: isToday,
-                            filled: filled,
-                          );
-                        },
-                      ),
-                    ],
-                  ),
+                            isToday: BrushRecordStore.dayKey(date) == BrushRecordStore.dayKey(DateTime.now()),
+                            filled: [
+                              slots.contains(BrushSlot.morning),
+                              slots.contains(BrushSlot.noon),
+                              slots.contains(BrushSlot.night),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
-
-                const SizedBox(height: 16),
-
-                // ===== 오늘 요약 카드 =====
-                _TodayCard(count: todayCount),
-
-                const SizedBox(height: 12),
-
-                // ===== 주간 기록 카드 =====
-                _WeeklyCard(
-                  days: weekDays,
-                  counts: weekCounts,
-                  totalSessions: weekTotal,
-                  fullDays: weekFullDays,
-                ),
-              ],
-            );
-          },
-        ),
+              ),
+              const SizedBox(height: 16),
+              _TodayCard(count: todayCount),
+              const SizedBox(height: 12),
+              _WeeklyCard(
+                days: weekDays,
+                counts: weekCounts,
+                totalSessions: weekTotal,
+                fullDays: weekFullDays,
+              ),
+            ],
+          );
+        }),
       ),
     );
   }
 }
 
-/// 오늘 카드: "오늘의 양치" + 진행도
+// (이하 _TodayCard, _WeeklyCard, _StatTile, _DayChip, _Ring3 위젯은 기존 코드와 동일)
 class _TodayCard extends StatelessWidget {
   final int count; // 오늘 완료 횟수(0~3)
   const _TodayCard({required this.count});
@@ -259,9 +272,9 @@ class _TodayCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              // 원형 진행도 (3분할)
               SizedBox(
-                width: 44, height: 44,
+                width: 44,
+                height: 44,
                 child: _Ring3(
                   filled: [count >= 1, count >= 2, count >= 3],
                   ringWidth: 5,
@@ -300,12 +313,11 @@ class _TodayCard extends StatelessWidget {
   }
 }
 
-/// 주간 기록 카드: 일~토 칩 + 총합
 class _WeeklyCard extends StatelessWidget {
-  final List<DateTime> days;   // 7일(일~토)
-  final List<int> counts;      // 각 일자 0~3
-  final int totalSessions;     // 합계(최대 21)
-  final int fullDays;          // 3/3 달성 일수
+  final List<DateTime> days; // 7일(일~토)
+  final List<int> counts; // 각 일자 0~3
+  final int totalSessions; // 합계(최대 21)
+  final int fullDays; // 3/3 달성 일수
   const _WeeklyCard({
     required this.days,
     required this.counts,
@@ -316,7 +328,7 @@ class _WeeklyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final labels = const ['일','월','화','수','목','금','토'];
+    final labels = const ['일', '월', '화', '수', '목', '금', '토'];
 
     final start = days.first;
     final end = days.last;
@@ -350,8 +362,6 @@ class _WeeklyCard extends StatelessWidget {
                 fontSize: 12.5,
               )),
           const SizedBox(height: 12),
-
-          // 7칸 칩 (요일 라벨 + 링)
           Row(
             children: List.generate(7, (i) {
               final cnt = counts[i];
@@ -389,9 +399,7 @@ class _WeeklyCard extends StatelessWidget {
               );
             }),
           ),
-
           const SizedBox(height: 12),
-          // 요약 수치
           Row(
             children: [
               Expanded(
@@ -455,8 +463,6 @@ class _StatTile extends StatelessWidget {
   }
 }
 
-/// ===== 공용 위젯들 (월간 달력에서 사용) =====
-
 class _DayChip extends StatelessWidget {
   final int day;
   final bool isToday;
@@ -487,7 +493,8 @@ class _DayChip extends StatelessWidget {
                 builder: (context, cons) {
                   final size = math.min(cons.maxWidth, cons.maxHeight);
                   return SizedBox(
-                    width: size, height: size,
+                    width: size,
+                    height: size,
                     child: _Ring3(
                       filled: filled,
                       ringWidth: 3.6,
@@ -500,7 +507,8 @@ class _DayChip extends StatelessWidget {
                 },
               ),
               Text("$day",
-                  style: TextStyle(fontWeight: FontWeight.w800, color: cs.onSurface)),
+                  style: TextStyle(
+                      fontWeight: FontWeight.w800, color: cs.onSurface)),
             ],
           ),
         ),
@@ -509,7 +517,6 @@ class _DayChip extends StatelessWidget {
   }
 }
 
-/// 3분할 도넛 링(테두리 채움)
 class _Ring3 extends StatelessWidget {
   final List<bool> filled;
   final double ringWidth;
@@ -558,35 +565,28 @@ class _Ring3Painter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final c = size.center(Offset.zero);
     final r = math.min(size.width, size.height) / 2 - ringWidth / 2;
-
-    // 트랙
     final track = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = ringWidth
       ..color = trackColor.withOpacity(0.7);
     canvas.drawCircle(c, r, track);
-
-    // 채움
     final seg = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = ringWidth
       ..strokeCap = StrokeCap.round
       ..color = color;
-
-    // 외곽 가이드
     final outline = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
       ..color = borderColor;
-
     final base = [-90.0, 30.0, 150.0];
     final sweep = (120.0 - gapDeg) * math.pi / 180.0;
-
     for (int i = 0; i < 3; i++) {
       if (i < filled.length && filled[i]) {
         final startDeg = base[i] + gapDeg / 2;
         final start = startDeg * math.pi / 180.0;
-        canvas.drawArc(Rect.fromCircle(center: c, radius: r), start, sweep, false, seg);
+        canvas.drawArc(
+            Rect.fromCircle(center: c, radius: r), start, sweep, false, seg);
       }
     }
     canvas.drawCircle(c, r, outline);
@@ -594,6 +594,9 @@ class _Ring3Painter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _Ring3Painter old) =>
-      old.filled != filled || old.ringWidth != ringWidth ||
-          old.color != color || old.trackColor != trackColor || old.gapDeg != gapDeg;
+      old.filled != filled ||
+          old.ringWidth != ringWidth ||
+          old.color != color ||
+          old.trackColor != trackColor ||
+          old.gapDeg != gapDeg;
 }

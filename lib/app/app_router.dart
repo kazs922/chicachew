@@ -68,15 +68,10 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/brush-result',
-      name: 'brush-result',
       builder: (context, state) {
-        final scores = state.extra as List<double>? ?? [];
-        return BrushResultPage(
-          scores01: scores,
-          onDone: () {
-            context.go('/home');
-          },
-        );
+        // ✅ [수정] onDone 파라미터를 제거합니다.
+        final scores = (state.extra as List<double>?) ?? [];
+        return BrushResultPage(scores01: scores);
       },
     ),
 
