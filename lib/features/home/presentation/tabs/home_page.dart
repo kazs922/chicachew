@@ -8,14 +8,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:chicachew/core/storage/local_store.dart';
 import 'package:chicachew/core/storage/profile.dart';
 import 'package:chicachew/core/storage/active_profile_store.dart';
-
 import 'package:chicachew/core/bp/user_bp_store.dart';
 import 'package:chicachew/core/bp/user_streak_store.dart';
-
+import 'package:chicachew/core/records/brush_record_store.dart';
 import 'package:chicachew/features/home/presentation/tabs/education_page.dart';
-// ✨ [수정] 새로 만든 공용 데이터 파일을 import 합니다.
 import 'package:chicachew/features/edu/edu_data.dart';
-
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -42,34 +39,25 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _reloadAll() async {
-    await _loadProfiles();
-    await _loadStatus();
-    await _loadMissions();
+    await _loadProfilesAndTodayCounts();
+    await _loadStatusAndMissions();
   }
 
-  Future<void> _openProfileAdd() async {
-    final added = await context.push<bool>('/profile/add');
-    if (added == true) {
-      await _loadProfiles();
-      if (profiles.isNotEmpty) {
-        final last = profiles.length - 1;
-        await ActiveProfileStore.setIndex(last);
-        if (!mounted) return;
-        setState(() => _activeIdx = last);
-        await _loadStatus();
-        await _loadMissions();
-      }
-    }
-  }
-
-  Future<void> _loadProfiles() async {
+  Future<void> _loadProfilesAndTodayCounts() async {
     final store = LocalStore();
-    final loaded = await store.getProfiles();
+    final loadedProfiles = await store.getProfiles();
+
+    final List<Profile> updatedProfiles = [];
+    for (int i = 0; i < loadedProfiles.length; i++) {
+      final userKey = 'idx$i';
+      final count = await BrushRecordStore.getTodayBrushCount(userKey);
+      updatedProfiles.add(loadedProfiles[i].copyWith(brushCount: count));
+    }
 
     int? savedIdx = await ActiveProfileStore.getIndex();
     int nextIdx = -1;
-    if (loaded.isNotEmpty) {
-      if (savedIdx == null || savedIdx < 0 || savedIdx >= loaded.length) {
+    if (updatedProfiles.isNotEmpty) {
+      if (savedIdx == null || savedIdx < 0 || savedIdx >= updatedProfiles.length) {
         nextIdx = 0;
         await ActiveProfileStore.setIndex(0);
       } else {
@@ -79,7 +67,7 @@ class _HomePageState extends State<HomePage> {
 
     if (!mounted) return;
     setState(() {
-      profiles = loaded;
+      profiles = updatedProfiles;
       _activeIdx = nextIdx;
     });
   }
@@ -87,27 +75,41 @@ class _HomePageState extends State<HomePage> {
   Future<void> _selectProfile(int index) async {
     if (index < 0 || index >= profiles.length) return;
     await ActiveProfileStore.setIndex(index);
-    if (!mounted) return;
-    setState(() => _activeIdx = index);
-    await _loadStatus();
-    await _loadMissions();
+    await _reloadAll();
 
+    if (!mounted) return;
     final who = profiles[index].name;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('현재 사용자: $who')),
     );
   }
 
-  Future<void> _loadStatus() async {
-    final bp = (_activeIdx >= 0) ? await UserBpStore.total(_uKey) : 0;
-    final (days, _) = (_activeIdx >= 0)
-        ? await UserStreakStore.info(_uKey)
-        : (0, null);
+  Future<void> _loadStatusAndMissions() async {
+    if (_activeIdx < 0) {
+      if (mounted) {
+        setState(() {
+          _bp = 0;
+          _streakDays = 0;
+          _mBrush3 = false;
+          _mTimes3 = false;
+          _mMouthwash = false;
+        });
+      }
+      return;
+    }
+
+    final bp = await UserBpStore.total(_uKey);
+    final (days, _) = await UserStreakStore.info(_uKey);
+    final p = await SharedPreferences.getInstance();
+    final k = _todayKey();
 
     if (!mounted) return;
     setState(() {
       _bp = bp;
       _streakDays = days ?? 0;
+      _mBrush3 = p.getBool(_missionKey('brush3', day: k)) ?? false;
+      _mTimes3 = p.getBool(_missionKey('times3', day: k)) ?? false;
+      _mMouthwash = p.getBool(_missionKey('mouth', day: k)) ?? false;
     });
   }
 
@@ -121,15 +123,15 @@ class _HomePageState extends State<HomePage> {
     return 'mission_${_uKey}_$k$id';
   }
 
-  Future<void> _loadMissions() async {
-    final p = await SharedPreferences.getInstance();
-    final k = _todayKey();
-    if (!mounted) return;
-    setState(() {
-      _mBrush3 = p.getBool(_missionKey('brush3', day: k)) ?? false;
-      _mTimes3 = p.getBool(_missionKey('times3', day: k)) ?? false;
-      _mMouthwash = p.getBool(_missionKey('mouth', day: k)) ?? false;
-    });
+  Future<void> _openProfileAdd() async {
+    final added = await context.push<bool>('/profile/add');
+    if (added == true) {
+      await _reloadAll();
+      if (profiles.isNotEmpty) {
+        final last = profiles.length - 1;
+        await _selectProfile(last);
+      }
+    }
   }
 
   Future<void> _toggleMission(String id, bool value, {int reward = 2}) async {
@@ -141,15 +143,14 @@ class _HomePageState extends State<HomePage> {
     }
 
     final p = await SharedPreferences.getInstance();
-    final k = _todayKey();
-    final key = _missionKey(id, day: k);
+    final key = _missionKey(id);
     final prev = p.getBool(key) ?? false;
 
     if (!prev && value) {
       await p.setBool(key, true);
       await UserBpStore.add(_uKey, reward, note: '오늘의 미션:$id');
       await UserStreakStore.markToday(_uKey);
-      await _loadStatus();
+      await _loadStatusAndMissions();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -207,12 +208,18 @@ class _HomePageState extends State<HomePage> {
               Text(dateString,
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const Spacer(),
+              // ✅ [수정] 프로필 이름 Chip을 Flexible로 감싸서 공간이 부족할 때 줄어들도록 합니다.
               if (activeName != null)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Chip(
-                    avatar: const Icon(Icons.person, size: 18),
-                    label: Text(activeName),
+                Flexible(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Chip(
+                      avatar: const Icon(Icons.person, size: 18),
+                      label: Text(
+                        activeName,
+                        overflow: TextOverflow.ellipsis, // 이름이 길면 ...으로 표시
+                      ),
+                    ),
                   ),
                 ),
               Chip(
@@ -220,10 +227,10 @@ class _HomePageState extends State<HomePage> {
                 label: Text('BP $_bp'),
               ),
               const SizedBox(width: 8),
-              // Chip(
-              //   avatar: const Icon(Icons.local_fire_department_outlined, size: 18),
-              //   label: Text('연속 $_streakDays일'),
-              // ),
+              Chip(
+                avatar: const Icon(Icons.local_fire_department_outlined, size: 18),
+                label: Text('연속 $_streakDays일'),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -359,7 +366,6 @@ class _HomePageState extends State<HomePage> {
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () {
-                          // ✨ [수정] 공용 데이터인 eduSeed를 사용하도록 변경합니다.
                           final dailyQuizItem = eduSeed.firstWhere(
                                   (e) => e.id == 'kid_quiz_daily',
                               orElse: () => EduItem(

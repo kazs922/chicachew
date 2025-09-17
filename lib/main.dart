@@ -1,18 +1,22 @@
-// 📍 lib/main.dart (파일 전체를 이 코드로 교체하세요)
+// 📍 lib/main.dart (전체 파일)
 
+import 'package:flutter/material.dart';
 import 'package:chicachew/app/app_router.dart';
 import 'package:chicachew/app/app_theme.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-void main() async {
+// ✨ [추가] 날짜 형식 초기화를 위해 import 합니다.
+import 'package:intl/date_symbol_data_local.dart';
+
+// ✨ [수정] main 함수를 async로 변경하고 초기화 코드를 추가합니다.
+Future<void> main() async {
+  // Flutter 앱이 시작되기 전에 특정 작업을 수행할 수 있도록 보장합니다.
   WidgetsFlutterBinding.ensureInitialized();
 
-  runApp(
-    const ProviderScope(
-      child: MyApp(),
-    ),
-  );
+  // 한국어 날짜 형식을 사용할 수 있도록 초기화합니다.
+  await initializeDateFormatting('ko_KR', null);
+
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends StatelessWidget {

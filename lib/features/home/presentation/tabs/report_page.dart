@@ -472,45 +472,45 @@ class _DayChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final bool isDone = filled.any((b) => b);
 
-    return Center(
-      child: AspectRatio(
-        aspectRatio: 1,
-        child: Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: cs.primary.withOpacity(0.08),
-            border: Border.all(
-              color: isToday ? cs.primary.darken(.18) : cs.outlineVariant,
-              width: isToday ? 1.4 : 1,
+    return AspectRatio(
+      aspectRatio: 1,
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          // 양치 기록이 있는 날은 배경색을 살짝 추가
+          color: isDone ? cs.primaryContainer.withOpacity(0.4) : Colors.transparent,
+          border: Border.all(
+            color: isToday ? cs.primary : cs.outlineVariant.withOpacity(0.3),
+            width: isToday ? 2.0 : 1.0,
+          ),
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // 링 UI
+            LayoutBuilder(
+              builder: (context, cons) {
+                final size = math.min(cons.maxWidth, cons.maxHeight);
+                return SizedBox(
+                  width: size,
+                  height: size,
+                  child: _Ring3(
+                    filled: filled,
+                  ),
+                );
+              },
             ),
-          ),
-          padding: const EdgeInsets.all(6),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              LayoutBuilder(
-                builder: (context, cons) {
-                  final size = math.min(cons.maxWidth, cons.maxHeight);
-                  return SizedBox(
-                    width: size,
-                    height: size,
-                    child: _Ring3(
-                      filled: filled,
-                      ringWidth: 3.6,
-                      color: cs.primary,
-                      trackColor: cs.primary.withOpacity(.25),
-                      borderColor: cs.outlineVariant,
-                      gapDeg: 8,
-                    ),
-                  );
-                },
+            // 날짜 텍스트
+            Text(
+              "$day",
+              style: TextStyle(
+                fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                color: cs.onSurface,
               ),
-              Text("$day",
-                  style: TextStyle(
-                      fontWeight: FontWeight.w800, color: cs.onSurface)),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -519,17 +519,9 @@ class _DayChip extends StatelessWidget {
 
 class _Ring3 extends StatelessWidget {
   final List<bool> filled;
-  final double ringWidth;
-  final Color color, trackColor, borderColor;
-  final double gapDeg;
+
   const _Ring3({
-    super.key,
     required this.filled,
-    required this.ringWidth,
-    required this.color,
-    required this.trackColor,
-    required this.borderColor,
-    this.gapDeg = 6,
   });
 
   @override
@@ -537,11 +529,10 @@ class _Ring3 extends StatelessWidget {
     return CustomPaint(
       painter: _Ring3Painter(
         filled: filled,
-        ringWidth: ringWidth,
-        color: color,
-        trackColor: trackColor,
-        borderColor: borderColor,
-        gapDeg: gapDeg,
+        // 테마 색상을 직접 전달하여 일관성 유지
+        color: Theme.of(context).colorScheme.primary,
+        trackColor: Theme.of(context).colorScheme.surfaceVariant,
+        borderColor: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.5),
       ),
     );
   }
@@ -549,54 +540,54 @@ class _Ring3 extends StatelessWidget {
 
 class _Ring3Painter extends CustomPainter {
   final List<bool> filled;
-  final double ringWidth;
   final Color color, trackColor, borderColor;
-  final double gapDeg;
+
+  // ✅ [수정] 더 나은 가시성을 위해 디자인 수치 조정
+  final double ringWidth = 5.0; // 링 두께
+  final double gapDeg = 8.0;   // 링 사이 간격
+
   _Ring3Painter({
     required this.filled,
-    required this.ringWidth,
     required this.color,
     required this.trackColor,
     required this.borderColor,
-    required this.gapDeg,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final c = size.center(Offset.zero);
-    final r = math.min(size.width, size.height) / 2 - ringWidth / 2;
+    final r = math.min(size.width, size.height) / 2;
+
+    // 트랙 (링의 배경)
     final track = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = ringWidth
-      ..color = trackColor.withOpacity(0.7);
-    canvas.drawCircle(c, r, track);
+      ..color = trackColor;
+    canvas.drawCircle(c, r - ringWidth / 2, track);
+
+    // 채워진 부분
     final seg = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = ringWidth
-      ..strokeCap = StrokeCap.round
+      ..strokeCap = StrokeCap.round // 끝 부분을 둥글게
       ..color = color;
-    final outline = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1
-      ..color = borderColor;
-    final base = [-90.0, 30.0, 150.0];
+
     final sweep = (120.0 - gapDeg) * math.pi / 180.0;
+    final baseAngles = [-90.0, 30.0, 150.0]; // 12시, 4시, 8시 방향
+
     for (int i = 0; i < 3; i++) {
       if (i < filled.length && filled[i]) {
-        final startDeg = base[i] + gapDeg / 2;
-        final start = startDeg * math.pi / 180.0;
+        final startDeg = baseAngles[i] + gapDeg / 2;
+        final startRad = startDeg * math.pi / 180.0;
         canvas.drawArc(
-            Rect.fromCircle(center: c, radius: r), start, sweep, false, seg);
+            Rect.fromCircle(center: c, radius: r - ringWidth / 2), startRad, sweep, false, seg);
       }
     }
-    canvas.drawCircle(c, r, outline);
   }
 
   @override
   bool shouldRepaint(covariant _Ring3Painter old) =>
       old.filled != filled ||
-          old.ringWidth != ringWidth ||
           old.color != color ||
-          old.trackColor != trackColor ||
-          old.gapDeg != gapDeg;
+          old.trackColor != trackColor;
 }
