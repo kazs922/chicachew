@@ -1,10 +1,11 @@
+// 📍 lib/features/brush_guide/application/story_director.dart (오류 수정 완료)
+
 import 'dart:async';
 import 'dart:math';
 
+// --- (이벤트/열거형 클래스는 새로 주신 파일 기준으로 유지) ---
 enum StoryPhase { intro, coaching, finale }
 enum FinaleResult { win, draw, lose }
-
-// 화자
 enum Speaker { chikachu, cavitymon, narrator }
 
 abstract class StoryEvent { const StoryEvent(); }
@@ -12,12 +13,10 @@ abstract class StoryEvent { const StoryEvent(); }
 class ShowMessage extends StoryEvent {
   final String text;
   final Duration duration;
-  final String? voice;
   final Speaker speaker;
   const ShowMessage(
       this.text, {
-        this.duration = const Duration(seconds: 10),
-        this.voice,
+        this.duration = const Duration(seconds: 4),
         this.speaker = Speaker.narrator,
       });
 }
@@ -26,16 +25,14 @@ class ShowHintForZone extends StoryEvent {
   final int zoneIndex;
   final String zoneName;
   final Duration duration;
-  const ShowHintForZone(this.zoneIndex, this.zoneName,
-      {this.duration = const Duration(seconds: 10)});
+  const ShowHintForZone(this.zoneIndex, this.zoneName, {this.duration = const Duration(seconds: 4)});
 }
 
 class ShowCompleteZone extends StoryEvent {
   final int zoneIndex;
   final String zoneName;
   final Duration duration;
-  const ShowCompleteZone(this.zoneIndex, this.zoneName,
-      {this.duration = const Duration(seconds: 2)});
+  const ShowCompleteZone(this.zoneIndex, this.zoneName, {this.duration = const Duration(seconds: 3)});
 }
 
 class FinaleEvent extends StoryEvent {
@@ -48,221 +45,215 @@ class BossHudUpdate extends StoryEvent {
   const BossHudUpdate(this.advantage);
 }
 
-/// ─────────────────────────────────────────────────────────
-/// 13구역 (네가 준 기술 용어 순서를 유지하되, 어린이 말로 표시)
-/// 기술용어 → 어린이 라벨 매핑:
-/// 1. 왼쪽-협측        → 왼쪽 바깥쪽
-/// 2. 중앙-협측        → 가운데 바깥쪽
-/// 3. 오른쪽-협측      → 오른쪽 바깥쪽
-/// 4. 오른쪽-구개측    → 오른쪽 위 안쪽
-/// 5. 중앙-구개측      → 가운데 위 안쪽
-/// 6. 왼쪽-구개측      → 왼쪽 위 안쪽
-/// 7. 왼쪽-설측        → 왼쪽 아래 안쪽
-/// 8. 중앙-설측        → 가운데 아래 안쪽
-/// 9. 오른쪽-설측      → 오른쪽 아래 안쪽
-/// 10. 오른쪽-위-씹는면 → 오른쪽 위 씹는면
-/// 11. 왼쪽-위-씹는면   → 왼쪽  위 씹는면
-/// 12. 왼쪽-아래-씹는면 → 왼쪽  아래 씹는면
-/// 13. 오른쪽-아래-씹는면→ 오른쪽 아래 씹는면
-/// ─────────────────────────────────────────────────────────
 const List<String> kZoneNames = [
-  '왼쪽 바깥쪽 치아',           // 0: 왼쪽-협측
-  '앞니 바깥쪽 치아',           // 1: 중앙-협측
-  '오른쪽 바깥쪽 치아',          // 2: 오른쪽-협측
-  '오른쪽 입천장쪽 치아',          // 3: 오른쪽-구개측
-  '앞니 입천장쪽 치아',             // 4: 중앙-구개측
-  '왼쪽 입천장쪽 치아',           // 5: 왼쪽-구개측
-  '왼쪽 혀쪽 치아',           // 6: 왼쪽-설측
-  '앞니 혀쪽 치아',             // 7: 중앙-설측
-  '오른쪽 혀쪽 치아',          // 8: 오른쪽-설측
-  '오른쪽 위 씹는면', // 9: 오른쪽-위-씹는면
-  '왼쪽 위 씹는면',   // 10: 왼쪽-위-씹는면
-  '왼쪽 아래 씹는면', // 11: 왼쪽-아래-씹는면
-  '오른쪽 아래 씹는면',// 12: 오른쪽-아래-씹는면
+  '왼쪽 바깥쪽 치아',
+  '앞니 바깥쪽 치아',
+  '오른쪽 바깥쪽 치아',
+  '오른쪽 입천장쪽 치아',
+  '앞니 입천장쪽 치아',
+  '왼쪽 입천장쪽 치아',
+  '왼쪽 혀쪽 치아',
+  '앞니 혀쪽 치아',
+  '오른쪽 혀쪽 치아',
+  '오른쪽 위 씹는면',
+  '왼쪽 위 씹는면',
+  '왼쪽 아래 씹는면',
+  '오른쪽 아래 씹는면',
 ];
 
 class StoryDirector {
-  StoryDirector({this.ticksTargetPerZone = 10});
+  StoryDirector({this.ticksTargetPerZone = 5}); // 0.5초 * 5칸 = 2.5초 기준
 
   final int ticksTargetPerZone;
-  final Duration total = const Duration(minutes: 3);
+  final Duration total = const Duration(minutes: 2); // 총 양치 시간 2분
 
   final StreamController<StoryEvent> _ctrl = StreamController.broadcast();
   Stream<StoryEvent> get stream => _ctrl.stream;
 
   StoryPhase _phase = StoryPhase.intro;
   final Stopwatch _sw = Stopwatch();
-
-  // 진행률(0~100 기대, 길이 13)
-  List<double> _p = List.filled(13, 0.0);
-
-  DateTime _lastCoachMsgAt = DateTime.fromMillisecondsSinceEpoch(0);
-  final Duration coachCooldown = const Duration(seconds: 10);
-
-  // 완료 대사 1회만
-  final Set<int> _completedOnce = {};
-
-  bool _balanceWarned = false;
-
   Timer? _ticker;
   final _rand = Random();
 
-  // 엔딩 한번만
+  // --- 상태 관리 변수 ---
+  List<double> _scores = List.filled(13, 0.0);
+  final _ticksOnCurrentZone = List<int>.filled(13, 0);
+  final _neglectedTicks = List<int>.filled(13, 0);
+
+  // 대사 중복 방지
+  final Set<int> _spoken50pct = {};
+  final Set<int> _completedOnce = {};
+  DateTime _lastCoachMsgAt = DateTime.fromMillisecondsSinceEpoch(0);
+  final Duration coachCooldown = const Duration(seconds: 8); // 코칭 대사 쿨타임
   bool _finaleEmitted = false;
+
 
   void start() {
     if (_ticker != null) return;
     _phase = StoryPhase.intro;
     _sw..reset()..start();
 
-    // 인트로(화자 지정)
-    _ctrl.add(const ShowMessage('하하! 이런 양치로 날 이길 수 있을까?',
-        duration: Duration(seconds: 5), speaker: Speaker.cavitymon));
-    _ctrl.add(const ShowMessage('그만! 캐비티몬을 무찌르기 위해 양치를 시작하자!',
-        duration: Duration(seconds: 5), speaker: Speaker.chikachu));
+    // 인트로 대사
+    _ctrl.add(const ShowMessage('왔구나! 치카치카 용사!',
+        duration: Duration(seconds: 4), speaker: Speaker.chikachu));
 
-    _ticker = Timer.periodic(const Duration(milliseconds: 300), (_) => _onTick());
+    Future.delayed(const Duration(seconds: 4), () {
+      if (_phase == StoryPhase.intro) {
+        _ctrl.add(const ShowMessage('이 몸의 캐비티 공격을 막아낼 수 있을까?',
+            duration: Duration(seconds: 4), speaker: Speaker.cavitymon));
+      }
+    });
+
+    _ticker = Timer.periodic(const Duration(milliseconds: 500), (_) => _onTick());
   }
 
   void dispose() {
     _ticker?.cancel();
+    _sw.stop();
     _ctrl.close();
   }
 
+  // ✅ [결합] 실시간 진행도 기반 대사 로직
   void updateProgress(List<double> p) {
-    if (p.length == 13) {
-      _p = p.map((v) => v.clamp(0.0, 100.0)).toList();
-      // 진행 업데이트 시에도 전구역 100%면 즉시 엔딩
-      if (!_finaleEmitted && _allFull(_p)) {
-        _emitFinaleOnce(FinaleResult.win);
+    if (p.length != 13) return;
+
+    for (int i = 0; i < 13; i++) {
+      final oldScore = _scores[i];
+      final newScore = p[i].clamp(0.0, 1.0); // 점수를 0.0 ~ 1.0으로 정규화
+      _scores[i] = newScore;
+
+      // 100% 완료
+      if (newScore >= 1.0 && !_completedOnce.contains(i)) {
+        _completedOnce.add(i);
+        _lastCoachMsgAt = DateTime.now();
+        // ✅ [수정] _zoneNames -> kZoneNames
+        _ctrl.add(ShowCompleteZone(i, kZoneNames[i]));
+        if (_completedOnce.length == 13) {
+          _emitFinaleOnce(FinaleResult.win);
+        }
+        return; // 한 번에 하나의 완료 메시지만
+      }
+      // 50% 달성 (최초 1회)
+      else if (newScore >= 0.5 && !_spoken50pct.contains(i) && !_completedOnce.contains(i)) {
+        _spoken50pct.add(i);
+        _lastCoachMsgAt = DateTime.now();
+        // ✅ [수정] _zoneNames -> kZoneNames
+        _ctrl.add(ShowMessage('좋아! ${kZoneNames[i]} 쪽을 계속 닦아보자!', speaker: Speaker.chikachu));
+        return;
+      }
+      // 0% -> 닦기 시작 (최초 1회)
+      else if (newScore > 0 && oldScore == 0.0) {
+        _lastCoachMsgAt = DateTime.now();
+        // ✅ [수정] _zoneNames -> kZoneNames
+        _ctrl.add(ShowMessage('${kZoneNames[i]} 쪽을 닦아볼까?', speaker: Speaker.chikachu));
+        return;
       }
     }
   }
 
+  // ✅ [결합] 시간의 흐름 + 실시간 행동 감지 로직
   void _onTick() {
     if (_finaleEmitted) return;
 
     final elapsed = _sw.elapsed;
 
-    // HUD(보스 게이지) 갱신
-    final avg = _p.reduce((a, b) => a + b) / _p.length;
-    _ctrl.add(BossHudUpdate((avg / 100.0).clamp(0.0, 1.0)));
+    // HUD 업데이트
+    final completedCount = _completedOnce.length;
+    _ctrl.add(BossHudUpdate(completedCount / 13.0));
 
-    // 어느 타이밍이든 전구역 100%면 즉시 엔딩
-    if (_allFull(_p)) {
-      _emitFinaleOnce(FinaleResult.win);
-      return;
-    }
-
-    // 인트로 타임
-    if (elapsed <= const Duration(seconds: 25)) {
+    // --- 시간대별 로직 ---
+    // 1. 인트로 (10초)
+    if (elapsed < const Duration(seconds: 10)) {
       _phase = StoryPhase.intro;
       return;
     }
 
-    // 코칭 타임
-    if (elapsed < const Duration(minutes: 2, seconds: 36)) {
+    // 2. 코칭 (10초 ~ 1분 50초)
+    if (elapsed < total - const Duration(seconds: 10)) {
       if (_phase != StoryPhase.coaching) {
         _phase = StoryPhase.coaching;
-        _ctrl.add(const ShowMessage('좋아! 안내를 보면서 천천히 따라 해보자.',
+        _ctrl.add(const ShowMessage('좋아! 구석구석 깨끗하게 닦아보자!',
             duration: Duration(seconds: 3), speaker: Speaker.chikachu));
       }
       _runCoachingRules();
-
-      // 밸런스 경고(한 번만)
-      if (!_balanceWarned && elapsed >= const Duration(minutes: 1, seconds: 50)) {
-        final step = 100.0 / ticksTargetPerZone;  // 예: 10칸
-        int toTicks(double v) => (v / step).round();
-        final minTick = (ticksTargetPerZone * 0.5).round(); // 5칸
-        final maxTick = (ticksTargetPerZone * 0.6).round(); // 6칸
-
-        final cntMid = _p.where((v) {
-          final t = toTicks(v);
-          return t >= minTick && t <= maxTick;
-        }).length;
-
-        if (cntMid >= 10) {
-          _ctrl.add(const ShowMessage('너무 비슷한 곳만 닦는 중! 더 고루고루 닦아보자!',
-              duration: Duration(seconds: 4), speaker: Speaker.chikachu));
-        }
-        _balanceWarned = true;
-      }
-      return;
     }
 
-    // 파이널 타임(시간 종료 기준) — FinaleEvent만 발행
-    if (_phase != StoryPhase.finale) {
-      _phase = StoryPhase.finale;
-      if (avg >= 90.0) {
-        _emitFinaleOnce(FinaleResult.win);
-      } else if (avg >= 60.0) {
-        _emitFinaleOnce(FinaleResult.draw);
-      } else {
-        _emitFinaleOnce(FinaleResult.lose);
+    // 3. 피날레 (시간 종료 또는 모든 구역 완료 시)
+    else {
+      if (_phase != StoryPhase.finale) {
+        _phase = StoryPhase.finale;
+        final avg = _scores.reduce((a, b) => a + b) / _scores.length;
+        if (avg >= 0.9) _emitFinaleOnce(FinaleResult.win);
+        else if (avg >= 0.6) _emitFinaleOnce(FinaleResult.draw);
+        else _emitFinaleOnce(FinaleResult.lose);
       }
     }
-
-    if (elapsed >= total) _ticker?.cancel();
   }
 
   void _runCoachingRules() {
     final now = DateTime.now();
+    if (now.difference(_lastCoachMsgAt) < coachCooldown) return;
 
-    // 각 구역 100% → 완료 대사 "한 번만"
-    for (var i = 0; i < 13; i++) {
-      final v = _p[i];
-      if (v >= 100.0 && !_completedOnce.contains(i)) {
-        _completedOnce.add(i);
-        _ctrl.add(ShowCompleteZone(i, kZoneNames[i],
-            duration: const Duration(seconds: 2)));
-
-        // 모두 완료면 즉시 엔딩
-        if (_completedOnce.length == 13 && !_finaleEmitted) {
-          _emitFinaleOnce(FinaleResult.win);
-        }
-        return; // 한 틱에 한 이벤트만
+    int activeZone = -1;
+    double maxScore = -1.0;
+    for (int i = 0; i < _scores.length; i++) {
+      if (_scores[i] > maxScore && !_completedOnce.contains(i)) {
+        maxScore = _scores[i];
+        activeZone = i;
       }
     }
 
-    // 코칭 쿨다운
-    if (now.difference(_lastCoachMsgAt) < coachCooldown) return;
-
-    // 부족한 구역 힌트
-    final poor = <int>[];
-    for (var i = 0; i < 13; i++) {
-      if (_p[i] < 50.0) poor.add(i);
+    // --- 행동 기반 코칭 ---
+    // 1. 한 곳만 너무 오래 닦을 때 (8초)
+    if (activeZone != -1) {
+      _ticksOnCurrentZone[activeZone]++;
+      if (_ticksOnCurrentZone[activeZone] > 16) { // 0.5초 * 16 = 8초
+        int hintZone = _findLeastBrushedUncompletedZone();
+        if (hintZone != -1) {
+          _lastCoachMsgAt = now;
+          _ctrl.add(ShowHintForZone(hintZone, kZoneNames[hintZone]));
+          _ticksOnCurrentZone[activeZone] = 0;
+          return;
+        }
+      }
     }
-    if (poor.isNotEmpty) {
-      final idx = poor[_rand.nextInt(poor.length)];
-      _lastCoachMsgAt = now;
-      _ctrl.add(ShowHintForZone(idx, kZoneNames[idx],
-          duration: const Duration(seconds: 10)));
-      return;
-    }
 
-    // 격려 멘트
-    final anyGood = _p.any((v) => v >= 50.0 && v < 100.0);
-    if (anyGood) {
-      _lastCoachMsgAt = now;
-      _ctrl.add(const ShowMessage('잘하고 있어! 조금만 더 하면 성공이야!',
-          duration: const Duration(seconds: 10), speaker: Speaker.chikachu));
+    // 2. 특정 구역을 너무 오래 방치할 때 (15초)
+    for (int i = 0; i < _scores.length; i++) {
+      if (i != activeZone && !_completedOnce.contains(i)) {
+        _neglectedTicks[i]++;
+        if (_neglectedTicks[i] > 30) { // 0.5초 * 30 = 15초
+          _lastCoachMsgAt = now;
+          _ctrl.add(ShowMessage('크하하! ${kZoneNames[i]} 쪽은 안 닦는군! 내 차지다!',
+              speaker: Speaker.cavitymon));
+          _neglectedTicks[i] = 0;
+          return;
+        }
+      } else {
+        _neglectedTicks[i] = 0;
+      }
     }
   }
 
-  // ===== 헬퍼 =====
-  bool _allFull(List<double> src) {
-    if (src.length != 13) return false;
-    // 부동소수 보정: 99.9% 이상이면 완료로 간주
-    return src.every((v) => v >= 99.9);
+  int _findLeastBrushedUncompletedZone() {
+    double minScore = 2.0;
+    int targetZone = -1;
+    final uncompleted = <int>[];
+    for (int i=0; i < 13; i++) {
+      if (!_completedOnce.contains(i)) uncompleted.add(i);
+    }
+    if (uncompleted.isEmpty) return -1;
+
+    // 덜 닦은 구역들 중에서 무작위로 하나 선택
+    return uncompleted[_rand.nextInt(uncompleted.length)];
   }
 
   void _emitFinaleOnce(FinaleResult result) {
     if (_finaleEmitted) return;
     _finaleEmitted = true;
-
     _phase = StoryPhase.finale;
     _ctrl.add(FinaleEvent(result));
-
     _ticker?.cancel();
+    _sw.stop();
   }
 }

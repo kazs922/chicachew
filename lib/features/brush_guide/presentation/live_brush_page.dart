@@ -1,4 +1,4 @@
-// 📍 lib/features/brush_guide/presentation/live_brush_page.dart (전체 파일)
+// 📍 lib/features/brush_guide/presentation/live_brush_page.dart (속도 조절 완료)
 
 import 'dart:async';
 import 'dart:io';
@@ -30,23 +30,21 @@ final brushPredictorProvider = FutureProvider<BrushPredictor>((ref) async {
   return predictor;
 });
 
-// (이하 모든 상수는 그대로 유지)
 const int kBrushZoneCount = 13;
 const int kSequenceLength = 30;
 const int kFeatureDimension = 108;
 const bool kDemoMode = false;
 const bool kUseMpTasks = true;
-// ✨ [수정] 얼굴 가이드라인을 항상 표시하도록 true로 변경합니다.
 const bool kShowFaceGuide = true;
-const double kMinRelFace = 0.30;
-const double kMaxRelFace = 0.60;
+const double kMinRelFace = 0.25;
+const double kMaxRelFace = 0.70;
 const double kMinLuma = 0.12;
 const double kCenterJumpTol = 0.12;
 const double kFeatEmaAlpha = 0.25;
-const double kPosTol = 0.08;
+const double kPosTol = 0.15;
 const int kOkFlashMs = 1200;
 const int kMpSendIntervalMs = 120;
-const bool kLogLandmarks = true;
+const bool kLogLandmarks = false;
 const Duration kLmLogInterval = Duration(milliseconds: 800);
 String chicachuAssetOf(String variant) => 'assets/images/$variant.png';
 const String kCavityAsset = 'assets/images/cavity.png';
@@ -79,6 +77,12 @@ class LiveBrushPage extends ConsumerStatefulWidget {
 
 class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     with WidgetsBindingObserver {
+
+  final double _coordOffsetX = -0.02;
+  final double _coordOffsetY = 0.0;
+  final double _coordScaleX = 1.10;
+  final double _coordScaleY = 1.0;
+
   late final StoryDirector _director;
   late final RadarProgressEngine _progress;
   final TtsManager _ttsMgr = TtsManager.instance;
@@ -150,11 +154,16 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    // ✅ [수정] 레이더 차트 및 스토리 속도 조절
     _progress = RadarProgressEngine(
-      tickInterval: const Duration(seconds: 1),
+      // 0.75초마다 점수판 업데이트
+      tickInterval: const Duration(milliseconds: 750),
+      // 한 구역을 10칸으로 나눠서 채움 (7.5초 소요)
       ticksTargetPerZone: 10,
     );
     _director = StoryDirector(ticksTargetPerZone: 10);
+
     _progress.progressStream.listen((p) {
       _director.updateProgress(p);
       _lastScores = p;
@@ -179,7 +188,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
         _zoneLabels = labelsString.split('\n').where((s) => s.isNotEmpty).toList();
       });
     } catch (e) {
-      debugPrint("Failed to load zone labels: $e");
+      // debugPrint("Failed to load zone labels: $e");
     }
   }
 
@@ -204,29 +213,37 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
           _lastFaceUpdateAt = DateTime.now();
         } else if (e is MpHandEvent) {
           _lastHandLandmarks = e.landmarks;
-          _logHandLmSample([e.landmarks]);
         }
       });
     } catch (e) {
-      debugPrint('[MP] start/listen error: $e');
+      // debugPrint('[MP] start/listen error: $e');
     }
   }
 
   void _onMpFace(List<List> landmarks) {
     if (landmarks.isEmpty || !mounted) return;
-    final ptsNorm = <Offset>[];
-    double minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+
+    final ptsNormUncorrected = <Offset>[];
     for (final p in landmarks) {
       if (p.length < 2) continue;
       final double nx = (p[0] as num).toDouble().clamp(0.0, 1.0);
       final double ny = (p[1] as num).toDouble().clamp(0.0, 1.0);
-      ptsNorm.add(Offset(nx, ny));
-      if (nx < minX) minX = nx;
-      if (ny < minY) minY = ny;
-      if (nx > maxX) maxX = nx;
-      if (ny > maxY) maxY = ny;
+      ptsNormUncorrected.add(Offset(nx, ny));
     }
-    if (ptsNorm.isEmpty) return;
+    if (ptsNormUncorrected.isEmpty) return;
+
+    final ptsNorm = ptsNormUncorrected.map((p) {
+      return Offset((p.dx * _coordScaleX) + _coordOffsetX, (p.dy * _coordScaleY) + _coordOffsetY);
+    }).toList();
+
+    double minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+    for (final p in ptsNorm) {
+      if (p.dx < minX) minX = p.dx;
+      if (p.dy < minY) minY = p.dy;
+      if (p.dx > maxX) maxX = p.dx;
+      if (p.dy > maxY) maxY = p.dy;
+    }
+
     final faceBoxNorm = Rect.fromLTRB(minX, minY, maxX, maxY);
     final preview = MediaQuery.of(context).size;
     final mapped = _mapNormRectToPreview(
@@ -234,6 +251,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
       previewSize: preview,
       mirror: true,
     );
+
     final center = mapped.center;
     bool stable = true;
     if (_prevFaceCenter != null) {
@@ -246,11 +264,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     final rel = faceBoxNorm.height.clamp(0.0, 1.0);
     _lastRel = rel;
     _inRange = (rel >= kMinRelFace) && (rel <= kMaxRelFace);
-    _logFaceLmSampleNorm(
-      faceBoxNorm: faceBoxNorm,
-      ptsNorm: ptsNorm,
-      rel: rel,
-    );
+
     String? msg;
     if (!_inRange) {
       msg = (rel < kMinRelFace) ? '조금 더 가까이 와주세요' : '조금만 멀리 떨어져 주세요';
@@ -269,18 +283,19 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
       else
         msg = null;
     }
+
     setState(() {
       _faceRectInPreview = mapped;
       _yawDeg = _pitchDeg = _rollDeg = null;
       if (msg == null) {
-        _okMsgUntil =
-            DateTime.now().add(const Duration(milliseconds: kOkFlashMs));
+        _okMsgUntil = DateTime.now().add(const Duration(milliseconds: kOkFlashMs));
         _gateMsg = null;
       } else {
         _gateMsg = msg;
         _okMsgUntil = DateTime(0);
       }
     });
+
     _lastFaceLandmarks2D = ptsNorm;
     _lastFaceBoxNorm = _emaRect(_lastFaceBoxNorm, faceBoxNorm, 0.2);
   }
@@ -370,7 +385,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
         _startTimer();
       }
     } catch (e, st) {
-      debugPrint('Camera init error: $e\n$st');
+      // debugPrint('Camera init error: $e\n$st');
       if (mounted) {
         String errorMessage = '$e';
         if (e is CameraException) {
@@ -402,7 +417,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
       await cam.startImageStream(_onImage);
     } catch (e) {
       _streamOn = false;
-      debugPrint('Error starting image stream: $e');
+      // debugPrint('Error starting image stream: $e');
     }
   }
 
@@ -489,7 +504,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
         rotationDeg: rot, timestampMs: now,
       );
     } catch (e) {
-      debugPrint('[MP] processYuv420Planes error: $e');
+      // debugPrint('[MP] processYuv420Planes error: $e');
     } finally {
       _mpSending = false;
     }
@@ -564,7 +579,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
         }
       }
     } catch (e) {
-      debugPrint('infer error: $e');
+      // debugPrint('infer error: $e');
     } finally {
       _busy = false;
     }
@@ -855,22 +870,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
       children: [
         Positioned.fill(child: CameraPreview(cam)),
 
-        // ✨ [수정] kShowFaceGuide 상수를 사용하여 얼굴 가이드라인 표시 여부를 제어합니다.
-        if (kShowFaceGuide)
-          Positioned.fill(
-            child: LayoutBuilder(
-              builder: (context, c) {
-                final previewSize = Size(c.maxWidth, c.maxHeight);
-                return FaceAlignOverlay(
-                  previewSize: previewSize,
-                  faceBoxInPreview: _faceRectInPreview,
-                  // ✨ [추가] 얼굴이 가이드라인 안에 있는지 여부를 전달합니다.
-                  isFaceInGuide: _gateMsg == null && _inRange,
-                );
-              },
-            ),
-          ),
-
+        // ✅ [복원] 얼굴 가이드 안내 멘트 UI
         if (showGuide || showOk)
           Positioned(
             left: 20, right: 20,
@@ -890,6 +890,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
               ),
             ),
           ),
+
         Positioned.fill(
           child: StreamBuilder<List<double>>(
             stream: _progress.progressStream,
@@ -908,32 +909,6 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
             },
           ),
         ),
-
-        if (_debugProbs != null && _zoneLabels.isNotEmpty)
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 10,
-            left: 10,
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (int i = 0; i < _debugProbs!.length; i++)
-                    Text(
-                      '${_zoneLabels.length > i ? _zoneLabels[i] : 'Zone $i'}: ${(_debugProbs![i] * 100).toStringAsFixed(1)}%',
-                      style: TextStyle(
-                        color: _debugProbs![i] > 0.5 ? Colors.greenAccent : Colors.white,
-                        fontSize: 12,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
 
         Positioned(
           top: MediaQuery.of(context).padding.top + 10,
@@ -1001,7 +976,6 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
   }
   _FaceAnchors? _getFaceAnchors() {
     final faceLms = _lastFaceLandmarks2D;
-    final boxNorm = _lastFaceBoxNorm;
     if (faceLms != null && faceLms.length >= 300) {
       Offset? getMP(int i) => (i >= 0 && i < faceLms.length) ? faceLms[i] : null;
       final leftEye = getMP(33);
@@ -1024,14 +998,17 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     if (anchors == null) {
       return null;
     }
-    final handLmsNorm = _lastHandLandmarks;
 
-    // ✨ [수정] 모든 손 랜드마크의 x좌표를 좌우 반전시킵니다. (1.0 - x)
-    final List<Offset> handPts = (handLmsNorm == null || handLmsNorm.length < 21)
+    final handLmsNormCorrected = _lastHandLandmarks?.map((p) {
+      final nx = (p[0] as num).toDouble().clamp(0.0, 1.0);
+      final ny = (p[1] as num).toDouble().clamp(0.0, 1.0);
+      return Offset((nx * _coordScaleX) + _coordOffsetX, (ny * _coordScaleY) + _coordOffsetY);
+    }).toList();
+
+    final List<Offset> handPts = (handLmsNormCorrected == null || handLmsNormCorrected.length < 21)
         ? List<Offset>.filled(21, Offset.zero)
-        : handLmsNorm.map((p) => Offset(1.0 - (p[0] as num).toDouble().clamp(0.0, 1.0), (p[1] as num).toDouble().clamp(0.0, 1.0))).toList();
+        : handLmsNormCorrected.map((p) => Offset(1.0 - p.dx, p.dy)).toList();
 
-    // ✨ [수정] 모든 얼굴 랜드마크의 x좌표도 동일하게 좌우 반전시킵니다.
     final List<Offset> facePts = [
       Offset(1.0 - anchors.leftEye.dx, anchors.leftEye.dy),
       Offset(1.0 - anchors.rightEye.dx, anchors.rightEye.dy),
@@ -1042,7 +1019,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     ];
 
     final List<Offset> pts = [...handPts, ...facePts];
-    final nose = facePts[2]; // 반전된 코의 좌표
+    final nose = facePts[2];
     final leftEye = facePts[0];
     final rightEye = facePts[1];
     final chin = facePts[3];
@@ -1086,24 +1063,12 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     _prevPositionalFeat = positional;
     return _emaFeature(out);
   }
-  void _logFaceLmSampleNorm({ required Rect faceBoxNorm, required List<Offset> ptsNorm, required double rel,}) {
-    if (!kLogLandmarks) return;
-    final now = DateTime.now();
-    if (now.isBefore(_lastFaceLmLogAt.add(kLmLogInterval))) return;
-    _lastFaceLmLogAt = now;
-  }
-  void _logHandLmSample(List<List> hands) {
-    if (!kLogLandmarks) return;
-    final now = DateTime.now();
-    if (now.isBefore(_lastHandLmLogAt.add(kLmLogInterval))) return;
-    _lastHandLmLogAt = now;
-  }
 }
 
+// ✅ [복원] FaceAlignOverlay 관련 위젯 3개를 파일 하단에 다시 추가합니다.
 class FaceAlignOverlay extends StatelessWidget {
   final Size previewSize;
   final Rect? faceBoxInPreview;
-  // ✨ [수정] isFaceInGuide 파라미터를 추가하여 얼굴 위치 상태를 받습니다.
   final bool isFaceInGuide;
   const FaceAlignOverlay({
     super.key,
@@ -1127,7 +1092,6 @@ class FaceAlignOverlay extends StatelessWidget {
               size: previewSize,
               painter: _FaceBoxPainter(
                 faceRect: faceBoxInPreview!,
-                // ✨ [수정] isFaceInGuide 값에 따라 테두리 색상을 결정합니다.
                 ok: isFaceInGuide,
               ),
             ),
@@ -1149,13 +1113,11 @@ class _GuidePainter extends CustomPainter {
   const _GuidePainter({required this.targetRect});
   @override
   void paint(Canvas canvas, Size size) {
-    // ✨ [수정] 비어있던 paint 함수에 고정된 가이드라인을 그리는 코드를 추가합니다.
     final paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
       ..color = Colors.white.withOpacity(0.8);
 
-    // 타원형 가이드라인을 그립니다.
     final rrect = RRect.fromRectAndRadius(targetRect, const Radius.circular(150));
     canvas.drawRRect(rrect, paint);
   }
@@ -1172,7 +1134,6 @@ class _FaceBoxPainter extends CustomPainter {
     final p = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
-    // ✨ [수정] ok 값에 따라 색상을 녹색 또는 주황색으로 변경합니다.
       ..color = ok ? const Color(0xFF00E676) : const Color(0xFFFF7043);
     final rrect = RRect.fromRectAndRadius(faceRect, const Radius.circular(12));
     canvas.drawRRect(rrect, p);

@@ -6,11 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// ✅ 실제 DailyBrushProvider 클래스에 맞는 Provider를 생성합니다.
-// 이 Provider는 앱이 시작될 때 load() 함수를 호출하여 오늘 양치 횟수를 불러옵니다.
-final dailyBrushProvider = ChangeNotifierProvider<DailyBrushProvider>((ref) {
-  return DailyBrushProvider()..load();
-});
 
 
 class BrushTimePage extends ConsumerWidget {

@@ -1,5 +1,13 @@
+// 📍 lib/core/progress/daily_brush_provider.dart (수정 완료)
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // ✅ Riverpod import 추가
 import 'package:shared_preferences/shared_preferences.dart';
+
+// ✅ [추가] 앱 전체에서 사용할 단 하나의 Provider를 여기에 정의합니다.
+final dailyBrushProvider = ChangeNotifierProvider<DailyBrushProvider>((ref) {
+  return DailyBrushProvider()..load();
+});
 
 class DailyBrushProvider extends ChangeNotifier {
   static const _kKeyDate = 'daily_brush_date';
@@ -32,7 +40,8 @@ class DailyBrushProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> completeOne() async {
+  // ✅ [수정] 메서드 이름을 increment로 변경하여 의도를 명확하게 합니다.
+  Future<void> increment() async {
     if (_count >= maxPerDay) return;
     _count++;
     final sp = await SharedPreferences.getInstance();

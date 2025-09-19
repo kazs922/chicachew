@@ -1,5 +1,5 @@
 // 📍 lib/features/brush_guide/application/radar_progress_engine.dart
-// (파일 전체를 이 코드로 교체하세요)
+// (100% 도달 시 측정 중단 로직이 적용된 전체 파일)
 
 import 'dart:async';
 import 'dart:collection';
@@ -42,13 +42,11 @@ class RadarProgressEngine {
 
   /// 1초마다 실행되는 핵심 로직
   void _onTick() {
-    // 1초 동안 수집된 인식 기록이 없으면 아무것도 하지 않고 현재 점수만 보냅니다.
     if (_reportedIndicesThisSecond.isEmpty) {
       _controller.add(List.from(_scores));
       return;
     }
 
-    // 수집된 기록 중에서 가장 많이 나타난 구역(최빈값)을 찾습니다.
     final counts = HashMap<int, int>();
     for (final index in _reportedIndicesThisSecond) {
       counts[index] = (counts[index] ?? 0) + 1;
@@ -63,21 +61,20 @@ class RadarProgressEngine {
       }
     });
 
-    // 가장 많이 인식된 구역의 점수를 1칸 올립니다.
     if (mostFrequentIndex != null) {
       final idx = mostFrequentIndex!;
       if (idx >= 0 && idx < zoneCount) {
-        final current = _scores[idx];
-        if (current < 1.0) {
-          _scores[idx] = (current + 1.0 / ticksTargetPerZone).clamp(0.0, 1.0);
+        // ✅ [수정] 점수를 올리기 전, 현재 점수가 100%(1.0) 미만인지 확인합니다.
+        // 이 조건문 때문에 100%에 도달한 구역은 더 이상 점수가 오르지 않습니다.
+        final currentScore = _scores[idx];
+        if (currentScore < 1.0) {
+          final newScore = currentScore + (1.0 / ticksTargetPerZone);
+          _scores[idx] = newScore.clamp(0.0, 1.0); // 최종값이 1.0을 넘지 않도록 보정
         }
       }
     }
 
-    // 다음 1초를 위해 수집 리스트를 비웁니다.
     _reportedIndicesThisSecond.clear();
-
-    // UI에 변경된 점수를 알립니다.
     _controller.add(List.from(_scores));
   }
 

@@ -1,13 +1,16 @@
-// 📍 lib/features/brush_guide/presentation/brush_result_page.dart (전체 파일)
+// 📍 lib/features/brush_guide/presentation/brush_result_page.dart (수정 완료)
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'radar_overlay.dart';
 
 import 'package:chicachew/core/storage/active_profile_store.dart';
 import 'package:chicachew/core/records/brush_record_store.dart';
 import 'package:chicachew/core/bp/user_bp_store.dart';
 import 'package:chicachew/core/bp/user_streak_store.dart';
+import 'package:chicachew/core/progress/daily_brush_provider.dart';
+
 
 const List<String> kBrushZoneLabelsKo = [
   '왼쪽 바깥쪽 \n치아', '앞니 바깥쪽 \n치아', '오른쪽 바깥쪽 \n치아',
@@ -19,7 +22,7 @@ const List<String> kBrushZoneLabelsKo = [
 String toPercentString(double v) =>
     '${(v.clamp(0.0, 1.0) * 100).toStringAsFixed(0)}%';
 
-class BrushResultPage extends StatefulWidget {
+class BrushResultPage extends ConsumerStatefulWidget {
   final List<double> scores01;
   final double threshold;
 
@@ -30,10 +33,10 @@ class BrushResultPage extends StatefulWidget {
   });
 
   @override
-  State<BrushResultPage> createState() => _BrushResultPageState();
+  ConsumerState<BrushResultPage> createState() => _BrushResultPageState();
 }
 
-class _BrushResultPageState extends State<BrushResultPage> {
+class _BrushResultPageState extends ConsumerState<BrushResultPage> {
 
   @override
   void initState() {
@@ -59,9 +62,9 @@ class _BrushResultPageState extends State<BrushResultPage> {
 
     await UserBpStore.add(userKey, 5, note: '양치 완료 보상');
 
-    // ✅ [수정] 1. 먼저 오늘 날짜를 기록합니다 (반환값 없음)
+    await ref.read(dailyBrushProvider.notifier).increment();
+
     await UserStreakStore.markToday(userKey);
-    // ✅ [수정] 2. 그 다음에 업데이트된 스트릭 정보를 조회합니다.
     final (streakDays, _) = await UserStreakStore.info(userKey);
 
     if (!mounted) return;
@@ -76,12 +79,9 @@ class _BrushResultPageState extends State<BrushResultPage> {
 
   @override
   Widget build(BuildContext context) {
-    final weakIndices = <int>[];
-    for (int i = 0; i < widget.scores01.length; i++) {
-      if ((widget.scores01[i]).clamp(0.0, 1.0) < widget.threshold) {
-        weakIndices.add(i);
-      }
-    }
+    // ✅ [수정] '부족한 구역'만 필터링하는 대신, 모든 구역의 인덱스를 생성합니다.
+    final allIndices = List<int>.generate(widget.scores01.length, (i) => i);
+    final bool allPerfect = widget.scores01.every((score) => score >= widget.threshold);
 
     return Scaffold(
       appBar: AppBar(
@@ -120,9 +120,10 @@ class _BrushResultPageState extends State<BrushResultPage> {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: (weakIndices.isEmpty)
+                // ✅ [수정] 모든 구역이 완벽하면 축하 메시지를, 아니면 전체 결과 리스트를 보여줍니다.
+                child: allPerfect
                     ? const _CongratsView()
-                    : _WeakList(weakIndices: weakIndices, scores01: widget.scores01),
+                    : _ResultList(allIndices: allIndices, scores01: widget.scores01, threshold: widget.threshold),
               ),
             ),
             Padding(
@@ -182,28 +183,33 @@ class _CongratsView extends StatelessWidget {
   }
 }
 
-class _WeakList extends StatelessWidget {
-  final List<int> weakIndices;
+// ✅ [수정] _WeakList -> _ResultList로 변경하고, 모든 결과를 표시하도록 로직 수정
+class _ResultList extends StatelessWidget {
+  final List<int> allIndices;
   final List<double> scores01;
+  final double threshold;
 
-  const _WeakList({required this.weakIndices, required this.scores01});
+  const _ResultList({required this.allIndices, required this.scores01, required this.threshold});
 
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      itemCount: weakIndices.length,
+      itemCount: allIndices.length,
       separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (context, i) {
-        final idx = weakIndices[i];
+        final idx = allIndices[i];
+        final score = scores01[idx];
+        final isWeak = score < threshold;
+
         final label = (idx >= 0 && idx < kBrushZoneLabelsKo.length)
             ? kBrushZoneLabelsKo[idx].replaceAll('\n', ' ')
             : '구역 ${idx + 1}';
-        final percent = toPercentString(scores01[idx]);
+        final percent = toPercentString(score);
 
         return ListTile(
-          leading: const Icon(Icons.brush_outlined),
+          leading: Icon(isWeak ? Icons.water_drop_outlined : Icons.check_circle_outline, color: isWeak ? Colors.blueAccent : Colors.green),
           title: Text(label),
-          subtitle: const Text('다음엔 여기도 꼼꼼히!'),
+          subtitle: Text(isWeak ? '다음엔 여기도 꼼꼼히!' : '완벽해요!'),
           trailing: Text(percent, style: const TextStyle(fontWeight: FontWeight.w800)),
         );
       },

@@ -1,4 +1,4 @@
-// 📍 lib/features/home/presentation/tabs/report_page.dart (전체 파일)
+// 📍 lib/features/home/presentation/tabs/report_page.dart (수정 완료된 전체 파일)
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -238,7 +238,6 @@ class _ReportPageState extends State<ReportPage> {
   }
 }
 
-// (이하 _TodayCard, _WeeklyCard, _StatTile, _DayChip, _Ring3 위젯은 기존 코드와 동일)
 class _TodayCard extends StatelessWidget {
   final int count; // 오늘 완료 횟수(0~3)
   const _TodayCard({required this.count});
@@ -517,22 +516,40 @@ class _DayChip extends StatelessWidget {
   }
 }
 
+// =================================================================
+// ✅ [수정] 아래 두 클래스(_Ring3, _Ring3Painter)가 수정되었습니다.
+// =================================================================
+
 class _Ring3 extends StatelessWidget {
   final List<bool> filled;
+  final double? ringWidth;
+  final double? gapDeg;
+  final Color? color;
+  final Color? trackColor;
+  final Color? borderColor;
 
   const _Ring3({
+    super.key,
     required this.filled,
+    this.ringWidth,
+    this.gapDeg,
+    this.color,
+    this.trackColor,
+    this.borderColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return CustomPaint(
       painter: _Ring3Painter(
         filled: filled,
-        // 테마 색상을 직접 전달하여 일관성 유지
-        color: Theme.of(context).colorScheme.primary,
-        trackColor: Theme.of(context).colorScheme.surfaceVariant,
-        borderColor: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.5),
+        // 외부에서 전달된 값이 있으면 그 값을 사용하고, 없으면 테마나 기본값을 사용합니다.
+        ringWidth: ringWidth ?? 5.0,
+        gapDeg: gapDeg ?? 8.0,
+        color: color ?? cs.primary,
+        trackColor: trackColor ?? cs.surfaceVariant,
+        borderColor: borderColor ?? cs.outlineVariant.withOpacity(0.5),
       ),
     );
   }
@@ -541,16 +558,16 @@ class _Ring3 extends StatelessWidget {
 class _Ring3Painter extends CustomPainter {
   final List<bool> filled;
   final Color color, trackColor, borderColor;
-
-  // ✅ [수정] 더 나은 가시성을 위해 디자인 수치 조정
-  final double ringWidth = 5.0; // 링 두께
-  final double gapDeg = 8.0;   // 링 사이 간격
+  final double ringWidth;
+  final double gapDeg;
 
   _Ring3Painter({
     required this.filled,
     required this.color,
     required this.trackColor,
     required this.borderColor,
+    required this.ringWidth,
+    required this.gapDeg,
   });
 
   @override
@@ -589,5 +606,8 @@ class _Ring3Painter extends CustomPainter {
   bool shouldRepaint(covariant _Ring3Painter old) =>
       old.filled != filled ||
           old.color != color ||
-          old.trackColor != trackColor;
+          old.trackColor != trackColor ||
+          old.borderColor != borderColor ||
+          old.ringWidth != ringWidth ||
+          old.gapDeg != gapDeg;
 }
