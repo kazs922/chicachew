@@ -1,32 +1,31 @@
 // 📍 lib/features/brush_guide/application/radar_progress_engine.dart
-// (100% 도달 시 측정 중단 로직이 적용된 전체 파일)
+// (점수 이전 로직이 적용된 최종 버전)
 
 import 'dart:async';
 import 'dart:collection';
 import 'dart:math';
 
+// ✅ [추가] kBrushZoneCount를 사용하기 위해 import 합니다.
+import 'package:chicachew/core/ml/brush_predictor.dart';
+
 class RadarProgressEngine {
   final Duration tickInterval;
   final int ticksTargetPerZone;
-  final int zoneCount;
 
   RadarProgressEngine({
     this.tickInterval = const Duration(seconds: 1),
     this.ticksTargetPerZone = 10,
-    this.zoneCount = 13, // 13개 구역을 기본값으로 설정
   });
 
   Timer? _timer;
   late final List<double> _scores;
-
-  // 1초 동안 인식된 모든 구역 인덱스를 저장할 리스트
   final List<int> _reportedIndicesThisSecond = [];
 
   final _controller = StreamController<List<double>>.broadcast();
   Stream<List<double>> get progressStream => _controller.stream;
 
   void start() {
-    _scores = List<double>.filled(zoneCount, 0.0);
+    _scores = List<double>.filled(kBrushZoneCount, 0.0);
     _timer?.cancel();
     _timer = Timer.periodic(tickInterval, (_) => _onTick());
   }
@@ -63,13 +62,30 @@ class RadarProgressEngine {
 
     if (mostFrequentIndex != null) {
       final idx = mostFrequentIndex!;
-      if (idx >= 0 && idx < zoneCount) {
-        // ✅ [수정] 점수를 올리기 전, 현재 점수가 100%(1.0) 미만인지 확인합니다.
-        // 이 조건문 때문에 100%에 도달한 구역은 더 이상 점수가 오르지 않습니다.
+      if (idx >= 0 && idx < kBrushZoneCount) {
         final currentScore = _scores[idx];
+        final scoreToAdd = (1.0 / ticksTargetPerZone);
+
         if (currentScore < 1.0) {
-          final newScore = currentScore + (1.0 / ticksTargetPerZone);
-          _scores[idx] = newScore.clamp(0.0, 1.0); // 최종값이 1.0을 넘지 않도록 보정
+          // ✅ [기존 로직] 아직 100%가 아니라면, 현재 구역의 점수를 올립니다.
+          final newScore = currentScore + scoreToAdd;
+          _scores[idx] = newScore.clamp(0.0, 1.0);
+        } else {
+          // ✅ [새로운 로직] 현재 구역이 100%라면, 가장 덜 닦인 다른 구역을 찾아 점수를 더해줍니다.
+          int? spilloverTargetIndex;
+          double minScore = 1.0;
+
+          for (int i = 0; i < kBrushZoneCount; i++) {
+            if (_scores[i] < minScore) {
+              minScore = _scores[i];
+              spilloverTargetIndex = i;
+            }
+          }
+
+          if (spilloverTargetIndex != null) {
+            final newScore = _scores[spilloverTargetIndex] + scoreToAdd;
+            _scores[spilloverTargetIndex] = newScore.clamp(0.0, 1.0);
+          }
         }
       }
     }
@@ -80,7 +96,7 @@ class RadarProgressEngine {
 
   /// 모델이 구역을 인식할 때마다 이 함수가 호출되어 리스트에 추가합니다.
   void reportZoneIndex(int? zoneIndex) {
-    if (zoneIndex != null && zoneIndex >= 0 && zoneIndex < zoneCount) {
+    if (zoneIndex != null && zoneIndex >= 0 && zoneIndex < kBrushZoneCount) {
       _reportedIndicesThisSecond.add(zoneIndex);
     }
   }

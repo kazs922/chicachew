@@ -32,16 +32,15 @@ final brushPredictorProvider = FutureProvider<BrushPredictor>((ref) async {
 const int kSequenceLength = 30;
 const int kFeatureDimension = 108;
 
-// ✅ 데모 모드 <-> 실사용 모드 전환 스위치
-const bool kDemoMode = false; // 시연 시 true, 실제 카메라 사용 시 false
+const bool kDemoMode = false;
 
 const bool kUseMpTasks = true;
-const bool kShowFaceGuide = true; // 가이드 멘트를 위해 true 유지
+const bool kShowFaceGuide = true;
 const double kMinRelFace = 0.25;
 const double kMaxRelFace = 0.70;
 const double kMinLuma = 0.12;
 const double kCenterJumpTol = 0.12;
-const double kFeatEmaAlpha = 0.15; // 스무딩 강도 (낮을수록 부드러움)
+const double kFeatEmaAlpha = 0.15;
 const double kPosTol = 0.15;
 const int kOkFlashMs = 1200;
 const int kMpSendIntervalMs = 120;
@@ -160,8 +159,6 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     _director.stream.listen(_onStoryEvent);
     _loadZoneLabels();
     _startTimer();
-
-    // ✅ [수정] 모드와 관계없이 항상 카메라를 켜고, MediaPipe를 시작합니다.
     _initMpTasks();
 
     if (kDemoMode) {
@@ -172,7 +169,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     } else {
       _progress.progressStream.listen((p) {
         _director.updateProgress(p);
-        _lastScores = p;
+        if(mounted) setState(() => _lastScores = p);
         if (!_finaleTriggered && _allFull(p)) {
           _triggerFinaleOnce(source: 'progress');
         }
@@ -450,7 +447,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
       } else if (_cam != null) {
         _startTimer();
       }
-      if (!kDemoMode && kUseMpTasks) {
+      if (kUseMpTasks) {
         try {
           await MpTasksBridge.instance
               .start(face: true, hands: true, useNativeCamera: false);
@@ -528,7 +525,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
   }
 
   Future<void> _onImage(CameraImage img) async {
-    if (kDemoMode || _busy || !mounted) return;
+    if (_busy || !mounted) return;
     _busy = true;
 
     try {
@@ -546,7 +543,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
         });
       }
 
-      if (pred != null && BrushModelEngine.I.isReady) {
+      if (!kDemoMode && pred != null && BrushModelEngine.I.isReady) {
         _throttle = (_throttle + 1) % 2;
         if (_throttle == 0) {
           final allowByDist = (_lastRel == null) ? true : _inRange;
@@ -630,15 +627,28 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
   void onModelZoneUpdate(int? zoneIndex) =>
       _progress.reportZoneIndex(zoneIndex);
 
+  List<double> _maskCompletedZones(List<double> probs) {
+    if (probs.length != _lastScores.length) return probs;
+    final masked = List<double>.from(probs);
+    for (int i = 0; i < _lastScores.length; i++) {
+      if (_lastScores[i] >= 1.0) {
+        masked[i] = 0.0;
+      }
+    }
+    return masked;
+  }
+
   void onModelProbsUpdate(List<double> probs) {
-    if (!kDemoMode) _progress.reportZoneProbs(probs, threshold: 0.25);
+    final maskedProbs = _maskCompletedZones(probs);
+
+    if (!kDemoMode) _progress.reportZoneProbs(maskedProbs, threshold: 0.25);
+
     if (mounted) {
       setState(() {
-        _debugProbs = probs;
+        _debugProbs = maskedProbs;
       });
     }
   }
-
 
   void _onStoryEvent(StoryEvent e) {
     if (!mounted) return;
@@ -883,31 +893,32 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
             ),
           ),
 
-        if (!kDemoMode && _debugProbs != null && _zoneLabels.isNotEmpty)
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 10,
-            left: 10,
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (int i = 0; i < _debugProbs!.length; i++)
-                    Text(
-                      '${_zoneLabels.length > i ? _zoneLabels[i] : 'Zone $i'}: ${(_debugProbs![i] * 100).toStringAsFixed(1)}%',
-                      style: TextStyle(
-                        color: _debugProbs![i] > 0.5 ? Colors.greenAccent : Colors.white,
-                        fontSize: 12,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
+        // 부위별 로그 확인용
+        // if (!kDemoMode && _debugProbs != null && _zoneLabels.isNotEmpty)
+        //   Positioned(
+        //     top: MediaQuery.of(context).padding.top + 10,
+        //     left: 10,
+        //     child: Container(
+        //       padding: const EdgeInsets.all(8),
+        //       decoration: BoxDecoration(
+        //         color: Colors.black.withOpacity(0.6),
+        //         borderRadius: BorderRadius.circular(8),
+        //       ),
+        //       child: Column(
+        //         crossAxisAlignment: CrossAxisAlignment.start,
+        //         children: [
+        //           for (int i = 0; i < _debugProbs!.length; i++)
+        //             Text(
+        //               '${_zoneLabels.length > i ? _zoneLabels[i] : 'Zone $i'}: ${(_debugProbs![i] * 100).toStringAsFixed(1)}%',
+        //               style: TextStyle(
+        //                 color: _debugProbs![i] > 0.5 ? Colors.greenAccent : Colors.white,
+        //                 fontSize: 12,
+        //               ),
+        //             ),
+        //         ],
+        //       ),
+        //     ),
+        //   ),
 
         Positioned(
           top: MediaQuery.of(context).padding.top + 10,
@@ -1064,7 +1075,6 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
   }
 }
 
-// (이하 위젯 클래스들은 기존과 동일)
 class _BossHud extends StatelessWidget {
   final double advantage;
   const _BossHud({required this.advantage});
