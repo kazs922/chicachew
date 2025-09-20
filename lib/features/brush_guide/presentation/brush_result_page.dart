@@ -47,39 +47,49 @@ class _BrushResultPageState extends ConsumerState<BrushResultPage> {
   }
 
   Future<void> _processBrushCompletion() async {
-    final activeIndex = await ActiveProfileStore.getIndex();
-    if (activeIndex == null || activeIndex < 0) return;
+    // ✅ [수정] 1. 먼저 오늘의 양치 횟수를 가져옵니다.
+    final dailyBrushNotifier = ref.read(dailyBrushProvider.notifier);
+    final currentBrushCount = dailyBrushNotifier.count;
 
-    final userKey = 'idx$activeIndex';
-    final now = DateTime.now();
+    // ✅ [수정] 2. 양치 횟수가 3번 미만일 때만 저장 로직을 실행합니다.
+    if (currentBrushCount < 3) {
+      final activeIndex = await ActiveProfileStore.getIndex();
+      if (activeIndex == null || activeIndex < 0) return;
 
-    final record = BrushRecord(
-      timestamp: now,
-      scores: widget.scores01,
-      durationSec: 120,
-    );
-    await BrushRecordStore.addRecord(userKey, record);
+      final userKey = 'idx$activeIndex';
+      final now = DateTime.now();
 
-    await UserBpStore.add(userKey, 5, note: '양치 완료 보상');
+      final record = BrushRecord(
+        timestamp: now,
+        scores: widget.scores01,
+        durationSec: 120,
+      );
+      await BrushRecordStore.addRecord(userKey, record);
+      await UserBpStore.add(userKey, 5, note: '양치 완료 보상');
+      await dailyBrushNotifier.increment(); // 횟수 1 증가
+      await UserStreakStore.markToday(userKey);
 
-    await ref.read(dailyBrushProvider.notifier).increment();
+      final (streakDays, _) = await UserStreakStore.info(userKey);
 
-    await UserStreakStore.markToday(userKey);
-    final (streakDays, _) = await UserStreakStore.info(userKey);
+      if (!mounted) return;
 
-    if (!mounted) return;
+      final currentStreak = streakDays ?? 0;
+      final streakMsg = currentStreak > 1 ? '$currentStreak일 연속!' : '첫 스트릭 시작!';
 
-    final currentStreak = streakDays ?? 0;
-    final streakMsg = currentStreak > 1 ? '$currentStreak일 연속!' : '첫 스트릭 시작!';
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('잘했어요! +5 BP 적립! ($streakMsg)')),
-    );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('잘했어요! +5 BP 적립! ($streakMsg)')),
+      );
+    } else {
+      // ✅ [추가] 이미 3번 닦았을 경우 사용자에게 알려줍니다.
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('오늘의 양치 3번을 모두 완료했어요! 대단해요!')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // ✅ [수정] '부족한 구역'만 필터링하는 대신, 모든 구역의 인덱스를 생성합니다.
     final allIndices = List<int>.generate(widget.scores01.length, (i) => i);
     final bool allPerfect = widget.scores01.every((score) => score >= widget.threshold);
 
@@ -120,7 +130,6 @@ class _BrushResultPageState extends ConsumerState<BrushResultPage> {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                // ✅ [수정] 모든 구역이 완벽하면 축하 메시지를, 아니면 전체 결과 리스트를 보여줍니다.
                 child: allPerfect
                     ? const _CongratsView()
                     : _ResultList(allIndices: allIndices, scores01: widget.scores01, threshold: widget.threshold),
@@ -183,7 +192,6 @@ class _CongratsView extends StatelessWidget {
   }
 }
 
-// ✅ [수정] _WeakList -> _ResultList로 변경하고, 모든 결과를 표시하도록 로직 수정
 class _ResultList extends StatelessWidget {
   final List<int> allIndices;
   final List<double> scores01;

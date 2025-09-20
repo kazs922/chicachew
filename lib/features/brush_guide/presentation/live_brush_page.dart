@@ -1,4 +1,4 @@
-// 📍 lib/features/brush_guide/presentation/live_brush_page.dart (속도 조절 완료)
+// 📍 lib/features/brush_guide/presentation/live_brush_page.dart (최종 완성본)
 
 import 'dart:async';
 import 'dart:io';
@@ -15,7 +15,6 @@ import 'package:go_router/go_router.dart';
 // 앱 내부 의존
 import 'package:chicachew/core/ml/brush_model_engine.dart';
 import 'package:chicachew/core/ml/postprocess.dart';
-import 'package:chicachew/core/tts/tts_manager.dart';
 import 'package:chicachew/core/ml/brush_predictor.dart';
 import 'package:chicachew/core/landmarks/mediapipe_tasks.dart';
 import '../../brush_guide/application/story_director.dart';
@@ -30,17 +29,19 @@ final brushPredictorProvider = FutureProvider<BrushPredictor>((ref) async {
   return predictor;
 });
 
-const int kBrushZoneCount = 13;
 const int kSequenceLength = 30;
 const int kFeatureDimension = 108;
-const bool kDemoMode = false;
+
+// ✅ 데모 모드 <-> 실사용 모드 전환 스위치
+const bool kDemoMode = false; // 시연 시 true, 실제 카메라 사용 시 false
+
 const bool kUseMpTasks = true;
-const bool kShowFaceGuide = true;
+const bool kShowFaceGuide = true; // 가이드 멘트를 위해 true 유지
 const double kMinRelFace = 0.25;
 const double kMaxRelFace = 0.70;
 const double kMinLuma = 0.12;
 const double kCenterJumpTol = 0.12;
-const double kFeatEmaAlpha = 0.25;
+const double kFeatEmaAlpha = 0.15; // 스무딩 강도 (낮을수록 부드러움)
 const double kPosTol = 0.15;
 const int kOkFlashMs = 1200;
 const int kMpSendIntervalMs = 120;
@@ -80,12 +81,11 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
 
   final double _coordOffsetX = -0.02;
   final double _coordOffsetY = 0.0;
-  final double _coordScaleX = 1.10;
+  final double _coordScaleX = 1.20;
   final double _coordScaleY = 1.0;
 
   late final StoryDirector _director;
   late final RadarProgressEngine _progress;
-  final TtsManager _ttsMgr = TtsManager.instance;
   ShowMessage? _dialogue;
   DateTime _dialogueUntil = DateTime.fromMillisecondsSinceEpoch(0);
   FinaleResult? _finale;
@@ -155,30 +155,31 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // ✅ [수정] 레이더 차트 및 스토리 속도 조절
-    _progress = RadarProgressEngine(
-      // 0.75초마다 점수판 업데이트
-      tickInterval: const Duration(milliseconds: 750),
-      // 한 구역을 10칸으로 나눠서 채움 (7.5초 소요)
-      ticksTargetPerZone: 10,
-    );
-    _director = StoryDirector(ticksTargetPerZone: 10);
-
-    _progress.progressStream.listen((p) {
-      _director.updateProgress(p);
-      _lastScores = p;
-      if (!_finaleTriggered && _allFull(p)) {
-        _triggerFinaleOnce(source: 'progress');
-      }
-    });
+    _progress = RadarProgressEngine();
+    _director = StoryDirector();
     _director.stream.listen(_onStoryEvent);
-    _progress.start();
-    _director.start();
-    _ttsMgr.init();
-    if (kUseMpTasks) {
-      _initMpTasks();
-    }
     _loadZoneLabels();
+    _startTimer();
+
+    // ✅ [수정] 모드와 관계없이 항상 카메라를 켜고, MediaPipe를 시작합니다.
+    _initMpTasks();
+
+    if (kDemoMode) {
+      _director.progressStream.listen((scores) {
+        if (mounted) setState(() => _lastScores = scores);
+      });
+      _director.startDemoSequence();
+    } else {
+      _progress.progressStream.listen((p) {
+        _director.updateProgress(p);
+        _lastScores = p;
+        if (!_finaleTriggered && _allFull(p)) {
+          _triggerFinaleOnce(source: 'progress');
+        }
+      });
+      _progress.start();
+      _director.start();
+    }
   }
 
   Future<void> _loadZoneLabels() async {
@@ -188,7 +189,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
         _zoneLabels = labelsString.split('\n').where((s) => s.isNotEmpty).toList();
       });
     } catch (e) {
-      // debugPrint("Failed to load zone labels: $e");
+      //
     }
   }
 
@@ -216,7 +217,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
         }
       });
     } catch (e) {
-      // debugPrint('[MP] start/listen error: $e');
+      //
     }
   }
 
@@ -304,9 +305,8 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _stopPipelines();
-    _progress.stop();
+    if (!kDemoMode) _progress.stop();
     _director.dispose();
-    _ttsMgr.dispose();
     _mpSub?.cancel();
     _timer?.cancel();
     super.dispose();
@@ -330,12 +330,6 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
 
   Future<void> _bootCamera() async {
     if (_camState != _CamState.idle || !mounted) return;
-
-    if (kDemoMode) {
-      if (mounted) setState(() => _camState = _CamState.ready);
-      _startDemo();
-      return;
-    }
 
     try {
       setState(() => _camState = _CamState.requesting);
@@ -382,10 +376,9 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
       await _startStream();
       if (mounted) {
         setState(() => _camState = _CamState.ready);
-        _startTimer();
       }
     } catch (e, st) {
-      // debugPrint('Camera init error: $e\n$st');
+      //
       if (mounted) {
         String errorMessage = '$e';
         if (e is CameraException) {
@@ -417,7 +410,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
       await cam.startImageStream(_onImage);
     } catch (e) {
       _streamOn = false;
-      // debugPrint('Error starting image stream: $e');
+      //
     }
   }
 
@@ -451,13 +444,13 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
       _stopPipelines();
       _stopTimer();
     } else if (state == AppLifecycleState.resumed) {
-      final modelReady = ref.read(brushPredictorProvider).hasValue;
+      final modelReady = kDemoMode || ref.read(brushPredictorProvider).hasValue;
       if (modelReady && _cam == null) {
         _bootCamera();
       } else if (_cam != null) {
         _startTimer();
       }
-      if (kUseMpTasks) {
+      if (!kDemoMode && kUseMpTasks) {
         try {
           await MpTasksBridge.instance
               .start(face: true, hands: true, useNativeCamera: false);
@@ -504,12 +497,13 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
         rotationDeg: rot, timestampMs: now,
       );
     } catch (e) {
-      // debugPrint('[MP] processYuv420Planes error: $e');
+      //
     } finally {
       _mpSending = false;
     }
   }
 
+  // ✅ [추가] 스무딩(EMA) 필터 함수 추가
   Float32List _emaFeature(Float32List cur) {
     if (_lastFeatD == null || _lastFeatD!.length != cur.length) {
       _lastFeatD = Float32List.fromList(cur);
@@ -534,7 +528,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
   }
 
   Future<void> _onImage(CameraImage img) async {
-    if (_busy || !mounted) return;
+    if (kDemoMode || _busy || !mounted) return;
     _busy = true;
 
     try {
@@ -579,7 +573,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
         }
       }
     } catch (e) {
-      // debugPrint('infer error: $e');
+      //
     } finally {
       _busy = false;
     }
@@ -637,7 +631,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
       _progress.reportZoneIndex(zoneIndex);
 
   void onModelProbsUpdate(List<double> probs) {
-    _progress.reportZoneProbs(probs, threshold: 0.25);
+    if (!kDemoMode) _progress.reportZoneProbs(probs, threshold: 0.25);
     if (mounted) {
       setState(() {
         _debugProbs = probs;
@@ -646,11 +640,10 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
   }
 
 
-  void _onStoryEvent(StoryEvent e) async {
+  void _onStoryEvent(StoryEvent e) {
     if (!mounted) return;
     if (e is ShowMessage) {
       _showDialogue(e, e.duration);
-      await _ttsMgr.speak(e.text, speaker: e.speaker);
       HapticFeedback.lightImpact();
     } else if (e is ShowHintForZone) {
       final text = '${e.zoneName}를 닦아볼까?';
@@ -658,7 +651,6 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
         ShowMessage(text, duration: e.duration, speaker: Speaker.chikachu),
         e.duration,
       );
-      await _ttsMgr.speak(text, speaker: Speaker.chikachu);
       HapticFeedback.mediumImpact();
     } else if (e is ShowCompleteZone) {
       if (_spokenCompleteZoneIdxs.contains(e.zoneIndex)) return;
@@ -669,8 +661,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
         e.duration,
       );
       HapticFeedback.selectionClick();
-      await _ttsMgr.speak(text, speaker: Speaker.chikachu);
-      if (!_finaleTriggered &&
+      if (!kDemoMode && !_finaleTriggered &&
           _spokenCompleteZoneIdxs.length >= kBrushZoneCount) {
         _triggerFinaleOnce(source: 'zones-complete');
       }
@@ -724,12 +715,11 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
 
     _stopTimer();
 
-    if (kDemoMode) {
-      _stopDemo();
-    } else {
+    if (!kDemoMode) {
       await _disposeCamSafely();
+      _progress.stop();
     }
-    _progress.stop();
+
     setState(() => _finale = result ?? FinaleResult.win);
     final line = (result == FinaleResult.lose)
         ? '오늘은 아쉽지만, 내일은 꼭 이겨보자!'
@@ -739,7 +729,6 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
           duration: const Duration(seconds: 3), speaker: Speaker.chikachu),
       const Duration(seconds: 3),
     );
-    await _ttsMgr.speak(line, speaker: Speaker.chikachu);
     HapticFeedback.heavyImpact();
     if (!mounted) return;
     await Future.delayed(const Duration(seconds: 5));
@@ -748,38 +737,23 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     context.push('/mouthwash', extra: scores01);
   }
 
-  Timer? _demoTm;
-  int _demoZone = 0, _demoTicks = 0;
-  final _rnd = Random();
-  void _startDemo() {
-    _demoTm = Timer.periodic(const Duration(milliseconds: 200), (t) {
-      _demoTicks++;
-      if (_demoTicks >= 4 + _rnd.nextInt(3)) {
-        _demoTicks = 0;
-        _demoZone = (_demoZone + 1) % kBrushZoneCount;
-      }
-      final probs = List<double>.filled(kBrushZoneCount, 0.02);
-      probs[_demoZone] = 0.9;
-      probs[(_demoZone + kBrushZoneCount - 1) % kBrushZoneCount] = 0.3;
-      probs[(_demoZone + 1) % kBrushZoneCount] = 0.3;
-      onModelProbsUpdate(probs);
-      onModelZoneUpdate(_demoZone);
-    });
-  }
-
-  void _stopDemo() {
-    _demoTm?.cancel();
-  }
-
   @override
   Widget build(BuildContext context) {
+    final modelAsyncValue = ref.watch(brushPredictorProvider);
+
+    if (_camState == _CamState.idle) {
+      _bootCamera();
+    }
+
+    if (kDemoMode) {
+      return Scaffold(body: _buildCameraPreview());
+    }
+
     ref.listen(brushPredictorProvider, (_, state) {
       if (state.hasValue && _camState == _CamState.idle) {
         _bootCamera();
       }
     });
-
-    final modelAsyncValue = ref.watch(brushPredictorProvider);
 
     return Scaffold(
       body: modelAsyncValue.when(
@@ -854,7 +828,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
   Widget _buildCameraPreview() {
     final cam = _cam;
     if (cam == null || !cam.value.isInitialized) {
-      return _buildStatusView('카메라 미리보기를 준비 중입니다...');
+      return _buildStatusView('카메라를 준비 중입니다...');
     }
 
     final now = DateTime.now();
@@ -870,7 +844,25 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
       children: [
         Positioned.fill(child: CameraPreview(cam)),
 
-        // ✅ [복원] 얼굴 가이드 안내 멘트 UI
+        Positioned.fill(
+          child: StreamBuilder<List<double>>(
+            stream: kDemoMode ? _director.progressStream : _progress.progressStream,
+            initialData: List.filled(kBrushZoneCount, 0.0),
+            builder: (context, snapshot) {
+              final scores01 = _normalizedScores(snapshot.data ?? []);
+              final activeIdx = _suggestActiveIndex(scores01);
+              return RadarOverlay(
+                scores: scores01,
+                activeIndex: activeIdx,
+                expand: true,
+                fallbackDemoIfEmpty: false,
+                fx: RadarFx.radialPulse,
+                showHighlight: true,
+              );
+            },
+          ),
+        ),
+
         if (showGuide || showOk)
           Positioned(
             left: 20, right: 20,
@@ -891,24 +883,31 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
             ),
           ),
 
-        Positioned.fill(
-          child: StreamBuilder<List<double>>(
-            stream: _progress.progressStream,
-            initialData: List.filled(kBrushZoneCount, 0.0),
-            builder: (context, snapshot) {
-              final scores01 = _normalizedScores(snapshot.data ?? []);
-              final activeIdx = _suggestActiveIndex(scores01);
-              return RadarOverlay(
-                scores: scores01,
-                activeIndex: activeIdx,
-                expand: true,
-                fallbackDemoIfEmpty: false,
-                fx: RadarFx.radialPulse,
-                showHighlight: true,
-              );
-            },
+        if (!kDemoMode && _debugProbs != null && _zoneLabels.isNotEmpty)
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 10,
+            left: 10,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (int i = 0; i < _debugProbs!.length; i++)
+                    Text(
+                      '${_zoneLabels.length > i ? _zoneLabels[i] : 'Zone $i'}: ${(_debugProbs![i] * 100).toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        color: _debugProbs![i] > 0.5 ? Colors.greenAccent : Colors.white,
+                        fontSize: 12,
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
-        ),
 
         Positioned(
           top: MediaQuery.of(context).padding.top + 10,
@@ -1062,85 +1061,6 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     }
     _prevPositionalFeat = positional;
     return _emaFeature(out);
-  }
-}
-
-// ✅ [복원] FaceAlignOverlay 관련 위젯 3개를 파일 하단에 다시 추가합니다.
-class FaceAlignOverlay extends StatelessWidget {
-  final Size previewSize;
-  final Rect? faceBoxInPreview;
-  final bool isFaceInGuide;
-  const FaceAlignOverlay({
-    super.key,
-    required this.previewSize,
-    required this.faceBoxInPreview,
-    this.isFaceInGuide = false,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Stack(
-        children: [
-          CustomPaint(
-            size: previewSize,
-            painter: _GuidePainter(
-              targetRect: _targetRect(previewSize),
-            ),
-          ),
-          if (faceBoxInPreview != null)
-            CustomPaint(
-              size: previewSize,
-              painter: _FaceBoxPainter(
-                faceRect: faceBoxInPreview!,
-                ok: isFaceInGuide,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-  Rect _targetRect(Size size) {
-    final w = size.width * 0.72;
-    final h = size.height * 0.58;
-    final cx = size.width * 0.5;
-    final cy = size.height * 0.52;
-    return Rect.fromCenter(center: Offset(cx, cy), width: w, height: h);
-  }
-}
-
-class _GuidePainter extends CustomPainter {
-  final Rect targetRect;
-  const _GuidePainter({required this.targetRect});
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..color = Colors.white.withOpacity(0.8);
-
-    final rrect = RRect.fromRectAndRadius(targetRect, const Radius.circular(150));
-    canvas.drawRRect(rrect, paint);
-  }
-  @override
-  bool shouldRepaint(covariant _GuidePainter oldDelegate) => oldDelegate.targetRect != targetRect;
-}
-
-class _FaceBoxPainter extends CustomPainter {
-  final Rect faceRect;
-  final bool ok;
-  const _FaceBoxPainter({ required this.faceRect, required this.ok,});
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..color = ok ? const Color(0xFF00E676) : const Color(0xFFFF7043);
-    final rrect = RRect.fromRectAndRadius(faceRect, const Radius.circular(12));
-    canvas.drawRRect(rrect, p);
-  }
-  @override
-  bool shouldRepaint(covariant _FaceBoxPainter oldDelegate) {
-    return oldDelegate.faceRect != faceRect || oldDelegate.ok != ok;
   }
 }
 

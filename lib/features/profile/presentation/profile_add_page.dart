@@ -1,7 +1,8 @@
+// 📍 lib/features/profile/presentation/profile_add_page.dart (수정 완료)
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-
-// 저장 관련
+import 'package:chicachew/core/storage/active_profile_store.dart'; // ✅ ActiveProfileStore 추가
 import 'package:chicachew/core/storage/local_store.dart';
 import 'package:chicachew/core/storage/profile.dart';
 
@@ -74,14 +75,24 @@ class _ProfileAddPageState extends State<ProfileAddPage>
     final store = LocalStore();
     final current = await store.getProfiles();
 
+    // ✅ [수정] 선택된 연/월/일을 DateTime 객체로 변환합니다.
+    DateTime? birthDate;
+    if (_year != null && _month != null && _day != null) {
+      birthDate = DateTime(_year!, _month!, _day!);
+    }
+
+    // ✅ [수정] Profile 객체 생성 시 birthDate를 포함합니다.
     final newProfile = Profile(
       name: name,
-      avatar: _selectedAvatarId, // 저장은 id로
-      // ↓ Profile 모델에 생년 정보 필드가 있다면 아래처럼 추가하세요.
-      // birthYear: _year, birthMonth: _month, birthDay: _day,
+      avatar: _selectedAvatarId,
+      birthDate: birthDate,
     );
 
-    await store.saveProfiles([...current, newProfile]);
+    final updatedProfiles = [...current, newProfile];
+    await store.saveProfiles(updatedProfiles);
+
+    // ✅ [추가] 새로 만든 프로필을 활성 프로필로 설정합니다.
+    await ActiveProfileStore.setIndex(updatedProfiles.length - 1);
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -332,7 +343,6 @@ class _ProfileAddPageState extends State<ProfileAddPage>
                                 .toList(),
                             onChanged: (v) => setState(() {
                               _year = v;
-                              // 월/일 조합에 맞게 일자 보정
                               if (_month != null && _day != null) {
                                 final max = DateUtils.getDaysInMonth(
                                     _year!, _month!);
@@ -407,10 +417,8 @@ class _ProfileAddPageState extends State<ProfileAddPage>
               ),
             ),
 
-            // 아래 여백
             const SizedBox(height: 16),
 
-            // 폼이 닫혀 있을 때만 보이는 “자녀 추가” 메인 버튼
             if (!_showForm)
               SizedBox(
                 width: double.infinity,

@@ -6,6 +6,23 @@ import 'package:chicachew/core/ml/brush_model_engine.dart';
 import 'package:chicachew/core/ml/postprocess.dart';
 import 'package:flutter/services.dart' show rootBundle;
 
+const int kBrushZoneCount = 13;
+const List<String> kBrushZoneNames = [
+  '왼쪽 바깥쪽 치아',
+  '앞니 바깥쪽 치아',
+  '오른쪽 바깥쪽 치아',
+  '오른쪽 입천장쪽 치아',
+  '앞니 입천장쪽 치아',
+  '왼쪽 입천장쪽 치아',
+  '왼쪽 혀쪽 치아',
+  '앞니 혀쪽 치아',
+  '오른쪽 혀쪽 치아',
+  '오른쪽 위 씹는면',
+  '왼쪽 위 씹는면',
+  '왼쪽 아래 씹는면',
+  '오른쪽 아래 씹는면',
+];
+
 class InferenceResult {
   final int index;
   final String label;
