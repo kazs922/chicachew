@@ -6,6 +6,7 @@ import 'package:chicachew/core/records/brush_record_store.dart';
 import 'package:chicachew/features/brush_guide/presentation/brush_result_page.dart';
 import 'package:chicachew/features/brush_guide/presentation/radar_overlay.dart';
 
+
 class DailyReportPage extends StatelessWidget {
   final DateTime date;
   final List<BrushRecord> records;

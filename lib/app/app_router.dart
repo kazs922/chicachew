@@ -70,7 +70,8 @@ final GoRouter appRouter = GoRouter(
       path: '/brush-result',
       builder: (context, state) {
         // ✅ [수정] onDone 파라미터를 제거합니다.
-        final scores = (state.extra as List<double>?) ?? [];
+        final rawList = state.extra as List? ?? [];
+        final List<double> scores = rawList.map((v) => (v as num).toDouble()).toList();
         return BrushResultPage(scores01: scores);
       },
     ),

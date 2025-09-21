@@ -1,4 +1,4 @@
-// 📍 lib/features/brush_guide/presentation/live_brush_page.dart (최종 완성본)
+// 📍 lib/features/brush_guide/presentation/live_brush_page.dart (최종 완성본 - 카운트다운 적용)
 
 import 'dart:async';
 import 'dart:io';
@@ -31,8 +31,9 @@ final brushPredictorProvider = FutureProvider<BrushPredictor>((ref) async {
 
 const int kSequenceLength = 30;
 const int kFeatureDimension = 108;
+const int kMaxBrushSeconds = 90; // 2분20초
 
-const bool kDemoMode = false;
+const bool kDemoMode = true;
 
 const bool kUseMpTasks = true;
 const bool kShowFaceGuide = true;
@@ -134,8 +135,9 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
   List<double>? _debugProbs;
   List<String> _zoneLabels = [];
 
+  // ▶ 카운트다운 타이머
   Timer? _timer;
-  int _elapsedSeconds = 0;
+  int _remainSeconds = kMaxBrushSeconds;
 
   String get _chicachuAvatarPath => chicachuAssetOf(widget.chicachuVariant);
 
@@ -158,7 +160,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     _director = StoryDirector();
     _director.stream.listen(_onStoryEvent);
     _loadZoneLabels();
-    _startTimer();
+    _startTimer(reset: true); // ← 2분20초로 세팅 후 카운트다운 시작
     _initMpTasks();
 
     if (kDemoMode) {
@@ -189,7 +191,6 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
       //
     }
   }
-
 
   Future<void> _initMpTasks() async {
     try {
@@ -309,21 +310,36 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     super.dispose();
   }
 
-  void _startTimer() {
+  // --------------------
+  // ▶ 카운트다운 타이머 로직
+  void _startTimer({bool reset = false}) {
+    // ✅ 항상 새로 시작: 기존 타이머가 있다면 취소
     _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (mounted) {
-        setState(() {
-          _elapsedSeconds++;
-        });
+
+    if (reset) {
+      _remainSeconds = kMaxBrushSeconds;
+    }
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return;
+
+      if (_remainSeconds <= 1) {
+        t.cancel();
+        _timer = null;
+        setState(() => _remainSeconds = 0);
+        _triggerFinaleOnce(source: 'timer'); // 0초 도달 → 피날레
+      } else {
+        setState(() => _remainSeconds = _remainSeconds - 1);
       }
     });
   }
 
   void _stopTimer() {
     _timer?.cancel();
+    _timer = null;
   }
 
+  // --------------------
 
   Future<void> _bootCamera() async {
     if (_camState != _CamState.idle || !mounted) return;
@@ -445,7 +461,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
       if (modelReady && _cam == null) {
         _bootCamera();
       } else if (_cam != null) {
-        _startTimer();
+        _startTimer(); // 복귀 시 남은 시간으로 재개 (리셋 없음)
       }
       if (kUseMpTasks) {
         try {
@@ -733,7 +749,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     setState(() => _finale = result ?? FinaleResult.win);
     final line = (result == FinaleResult.lose)
         ? '오늘은 아쉽지만, 내일은 꼭 이겨보자!'
-        : '모든 구역 반짝반짝! 오늘 미션 완벽 클리어! ✨';
+        : '모든 구역 반짝반짝! 오늘 미션 클리어! ✨';
     _showDialogue(
       ShowMessage(line,
           duration: const Duration(seconds: 3), speaker: Speaker.chikachu),
@@ -846,8 +862,9 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     final showOk = now.isBefore(_okMsgUntil);
     final showGuide = _gateMsg != null && _gateMsg!.isNotEmpty;
 
-    final minutes = (_elapsedSeconds ~/ 60).toString().padLeft(2, '0');
-    final seconds = (_elapsedSeconds % 60).toString().padLeft(2, '0');
+    // ▶ 남은 시간으로 표시 (MM:SS)
+    final minutes = (_remainSeconds ~/ 60).toString().padLeft(2, '0');
+    final seconds = (_remainSeconds % 60).toString().padLeft(2, '0');
     final timerText = '$minutes:$seconds';
 
     return Stack(
@@ -1046,7 +1063,7 @@ class _LiveBrushPageState extends ConsumerState<LiveBrushPage>
     final chinRy = (chinT.dx * sr + chinT.dy * cr) / scale;
     final pitch = -(atan2(chinRy, chinRx) - (pi / 2));
     final cp = cos(pitch), sp = sin(pitch);
-    final List<Offset> norm = rolled.map((p) => Offset(p.dx * cp - p.dy * sp, p.dx * sp + p.dy * cp)).toList();
+    final List<Offset> norm = rolled.map((p) => Offset(p.dx * cp - p.dy * sp, (p.dx * sp + p.dy * cp))).toList();
     final posD = _d ~/ 2;
     final positional = Float32List(posD);
     int k = 0;
