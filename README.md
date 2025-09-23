@@ -2,8 +2,9 @@
 ### AI 기반 어린이 양치 코치 앱 (Flutter)
 ---
 <p align="center">
-  <img src="docs/cover.png" width="240" height="120" alt="ChicaChew Logo"/>
+  <img width="240" height="120" alt="Gemini_Generated_Image_p9unsp9unsp9unsp" src="https://github.com/user-attachments/assets/c43c5723-7853-4542-bb28-8523ed4a9d77" />
 </p>
+
 
 <p align="center">
   아이의 양치, **재미**와 **데이터**로 코칭합니다.
