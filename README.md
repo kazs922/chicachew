@@ -2,7 +2,7 @@
 ### AI 기반 어린이 양치 코치 앱 (Flutter)
 ---
 <p align="center">
-  <img width="240" height="120" alt="Gemini_Generated_Image_p9unsp9unsp9unsp" src="https://github.com/user-attachments/assets/c43c5723-7853-4542-bb28-8523ed4a9d77" />
+  <img width="240" height="360" alt="Gemini_Generated_Image_p9unsp9unsp9unsp" src="https://github.com/user-attachments/assets/c43c5723-7853-4542-bb28-8523ed4a9d77" />
 </p>
 
 
