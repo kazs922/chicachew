@@ -31,9 +31,9 @@ final brushPredictorProvider = FutureProvider<BrushPredictor>((ref) async {
 
 const int kSequenceLength = 30;
 const int kFeatureDimension = 108;
-const int kMaxBrushSeconds = 90; // 2분20초
+const int kMaxBrushSeconds = 140; // 2분20초
 
-const bool kDemoMode = true;
+const bool kDemoMode = false;
 
 const bool kUseMpTasks = true;
 const bool kShowFaceGuide = true;
