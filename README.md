@@ -68,7 +68,7 @@ flutter pub get
 
 # 2) 필수 에셋/모델 배치 후 pubspec.yaml 등록
 #   - assets/models/brush_zone.tflite
-#   - assets/images/*, assets/lottie/*
+#   - assets/images/*
 #   - Android 권한 선언(Manifest) 필수
 
 # 3) 실행 (실기기 권장)
@@ -96,7 +96,6 @@ flutter:
   assets:
     - assets/models/brush_zone.tflite
     - assets/images/
-    - assets/lottie/
 ```
 
 **런타임 권한 요청 예시**
@@ -137,7 +136,7 @@ docs/
 <details>
   <summary>참고: 업로드된 예시 파일</summary>
 
-- `intro_step1_page.dart`, `intro_step2_page.dart`
+- `intro_page.dart`
 - `profile_select_page.dart`, `profile_add_page.dart`
 - `home_page.dart`
 </details>
@@ -145,18 +144,8 @@ docs/
 ---
 
 ## 🧠 아키텍처 다이어그램
-```mermaid
-flowchart LR
-  A[Camera Stream] --> B[Preprocess]
-  B --> C[TFLite Inference (13 zones)]
-  C --> D[Postprocess & Smoothing]
-  D --> E[Radar Overlay UI]
-  A --> F[Face Alignment Check]
-  E --> G[Story/TTS & Rewards]
-  subgraph Storage
-    H[Local Stores: Profiles/BP/Streak/Records]
-  end
-  G --> H
+```
+
 ```
 
 ---
@@ -193,7 +182,3 @@ flowchart LR
 MIT © 2025 ChicaChew Team
 
 ---
-
-## 📬 문의
-- Maintainer: Your Name (you@example.com)
-- Issues: GitHub Issues 탭을 사용해주세요.
