@@ -13,13 +13,6 @@
   <strong>13구역 실시간 가이드 · 얼굴 정렬 체크 · 레이더 진행률 · 스토리·보상 루프</strong>
 </p>
 
-<p align="center">
-  <a href="https://flutter.dev"><img src="https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter" /></a>
-  <img src="https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart" />
-  <img src="https://img.shields.io/badge/Platform-Android-success" />
-  <img src="https://img.shields.io/badge/License-MIT-green" />
-  <img src="https://img.shields.io/badge/Status-Alpha-orange" />
-</p>
 
 ---
 
@@ -33,7 +26,7 @@
       <img src="https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart"/>
       <img src="https://img.shields.io/badge/camera-Plugin-4a4a4a"/>
       <img src="https://img.shields.io/badge/permission__handler-Plugin-4a4a4a"/>
-      <img src="https://img.shields.io/badge/flutter__tts-Plugin-4a4a4a"/>
+      <img src="https://img.shields.io/badge/android_studio-Narwhal 3"/>
     </td>
   </tr>
   <tr>
