@@ -96,83 +96,61 @@
 
 # ✨ 프로젝트 주요 기능
 
-<h2>🧩 솔루션 한눈에 보기</h2>
-<p align="center"><sub>앱의 주요 화면을 먼저 빠르게 훑어보세요.</sub></p>
-
-<div align="center">
-
-<!-- 1행: 홈 · 브러쉬 타임 · 교육 자료 -->
-<table style="border-collapse:collapse;">
+<!-- 1행(3탭): 홈 화면 · 브러쉬 타임 · 교육 자료  -->
+<table align="center" style="border-collapse:collapse; table-layout:fixed; width:100%; max-width:960px;">
+  <!-- 제목(Row 1) -->
   <tr>
-    <th align="center" style="padding:8px;border:1px solid #e5e7eb;">홈 화면</th>
-    <th align="center" style="padding:8px;border:1px solid #e5e7eb;">브러쉬 타임</th>
-    <th align="center" style="padding:8px;border:1px solid #e5e7eb;">교육 자료</th>
+    <th style="border:1px solid #e5e7eb; padding:10px; width:33%;">홈 화면</th>
+    <th style="border:1px solid #e5e7eb; padding:10px; width:33%;">브러쉬 타임</th>
+    <th style="border:1px solid #e5e7eb; padding:10px; width:33%;">교육 자료</th>
   </tr>
+  <!-- 화면(이미지, Row 2) -->
   <tr>
-    <td align="center" style="padding:12px;border:1px solid #e5e7eb;">
+    <td style="border:1px solid #e5e7eb; padding:14px; text-align:center;">
       <img src="https://github.com/user-attachments/assets/ea8f5204-37c3-4d15-8c87-e975d76a2274"
-           alt="홈 화면" width="220"/>
-      <div style="margin-top:10px;background:#F3F8F6;border:1px solid #DDEAE4;border-radius:10px;padding:10px 12px;">
-        <div style="font-weight:700;">📌 요약</div>
-        <div style="font-size:13px;line-height:1.5;color:#1f2937;">
-          오늘의 미션 · BP · 스트릭을 한 화면에서 확인
-        </div>
-      </div>
+           alt="홈 화면" width="240"
+           style="display:block; margin:0 auto;"/>
     </td>
-    <td align="center" style="padding:12px;border:1px solid #e5e7eb;">
+    <td style="border:1px solid #e5e7eb; padding:14px; text-align:center;">
       <img src="https://github.com/user-attachments/assets/d47c0f81-3e40-4d00-bb9d-34804b459765"
-           alt="브러쉬 타임" width="220"/>
-      <div style="margin-top:10px;background:#F3F8F6;border:1px solid #DDEAE4;border-radius:10px;padding:10px 12px;">
-        <div style="font-weight:700;">🪥 진행</div>
-        <div style="font-size:13px;line-height:1.5;color:#1f2937;">
-          얼굴 정렬 · 라이브 안내(TTS/진동) · 13구역 레이더
-        </div>
-      </div>
+           alt="브러쉬 타임" width="240"
+           style="display:block; margin:0 auto;"/>
     </td>
-    <td align="center" style="padding:12px;border:1px solid #e5e7eb;">
+    <td style="border:1px solid #e5e7eb; padding:14px; text-align:center;">
       <img src="https://github.com/user-attachments/assets/3ed02c72-8129-45b9-979d-3dd9d4d1cdf8"
-           alt="교육 자료" width="220"/>
-      <div style="margin-top:10px;background:#F3F8F6;border:1px solid #DDEAE4;border-radius:10px;padding:10px 12px;">
-        <div style="font-weight:700;">🎓 가이드</div>
-        <div style="font-size:13px;line-height:1.5;color:#1f2937;">
+           alt="교육 자료" width="240"
+           style="display:block; margin:0 auto;"/>
+    </td>
+  </tr>
+  <!-- 설명(Row 3) -->
+  <tr>
+    <td style="border:1px solid #e5e7eb; padding:14px;">
+      <div style="background:#F7FAF9; border:1px solid #DDEAE4; border-radius:10px; padding:12px;">
+        <strong style="display:block; margin-bottom:6px;">📌 요약</strong>
+        <span style="font-size:13px; line-height:1.6; color:#1f2937;">
+          오늘의 미션 · BP · 스트릭을 한 화면에서 확인
+        </span>
+      </div>
+    </td>
+    <td style="border:1px solid #e5e7eb; padding:14px;">
+      <div style="background:#F7FAF9; border:1px solid #DDEAE4; border-radius:10px; padding:12px;">
+        <strong style="display:block; margin-bottom:6px;">🪥 진행</strong>
+        <span style="font-size:13px; line-height:1.6; color:#1f2937;">
+          얼굴 정렬 · 라이브 안내(TTS/진동) · 13구역 레이더
+        </span>
+      </div>
+    </td>
+    <td style="border:1px solid #e5e7eb; padding:14px;">
+      <div style="background:#F7FAF9; border:1px solid #DDEAE4; border-radius:10px; padding:12px;">
+        <strong style="display:block; margin-bottom:6px;">🎓 가이드</strong>
+        <span style="font-size:13px; line-height:1.6; color:#1f2937;">
           양치 튜토리얼 · 올바른 자세 · 단계별 학습
-        </div>
+        </span>
       </div>
     </td>
   </tr>
 </table>
 
-<br/>
-
-<!-- 2행: 리포트 · 마이페이지 -->
-<table style="border-collapse:collapse;">
-  <tr>
-    <th align="center" style="padding:8px;border:1px solid #e5e7eb;">리포트</th>
-    <th align="center" style="padding:8px;border:1px solid #e5e7eb;">마이페이지</th>
-  </tr>
-  <tr>
-    <td align="center" style="padding:12px;border:1px solid #e5e7eb;">
-      <img src="https://github.com/user-attachments/assets/eb53aa5e-bae5-48ea-8b85-872b8afaa79d"
-           alt="리포트" width="220"/>
-      <div style="margin-top:10px;background:#F3F8F6;border:1px solid #DDEAE4;border-radius:10px;padding:10px 12px;">
-        <div style="font-weight:700;">📊 결과</div>
-        <div style="font-size:13px;line-height:1.5;color:#1f2937;">
-          구역별 점수 · 일/주/월 기록 · 다음 미션 제안
-        </div>
-      </div>
-    </td>
-    <td align="center" style="padding:12px;border:1px solid #e5e7eb;">
-      <img src="https://github.com/user-attachments/assets/766fe59a-661d-456b-b842-29f75be4bb02"
-           alt="마이페이지" width="220"/>
-      <div style="margin-top:10px;background:#F3F8F6;border:1px solid #DDEAE4;border-radius:10px;padding:10px 12px;">
-        <div style="font-weight:700;">👤 관리</div>
-        <div style="font-size:13px;line-height:1.5;color:#1f2937;">
-          프로필 · 아바타 보상 · 설정
-        </div>
-      </div>
-    </td>
-  </tr>
-</table>
 
 </div>
 
