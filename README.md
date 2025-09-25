@@ -335,7 +335,7 @@
 
 <p align="center">
   <!-- 필요 시 이미지 교체 -->
-  <img src="https://github.com/user-attachments/assets/0a12bfff-dec4-4a52-bad2-9afc72c52353" alt="architecture-diagram" width="700"/>
+  <img width="654" height="367" alt="스크린샷 2025-09-25 174637" src="https://github.com/user-attachments/assets/465e103f-edd5-4f42-b79b-f529bfa9abe5" />
 </p>
 
 > 전체 시스템은 **모바일 온디바이스 ML + 경량 백엔드(옵션)** 구조입니다.  
@@ -351,23 +351,14 @@
    진행도 구간별 멘트/햅틱을 실시간 제공.
 4. **로컬 저장(Local-first)**  
    일·주·월 기록/스트릭/리포트를 우선 로컬에 저장.
-5. *(옵션)* **클라우드 동기화**  
-   네트워크 가능 시 Firestore/Storage로 업로드.
 
-### 백엔드(옵션) 역할
-- **Auth/사용자 동기화**: Firebase Auth + Firestore(리포트 요약, 스트릭)  
-- **Remote Config/Feature Flag**: 임계치/멘트 톤/실험 플래그 원격 제어  
-- **콘텐츠 배포**: 교육 자료/튜토리얼 카드(Cloud Storage 또는 Firestore)  
-- **집계/리포팅**: 주간/월간 통계를 서버에서 사후 집계(Cloud Functions or FastAPI)  
-- **운영/품질**: Crashlytics, Analytics, A/B 테스트
 
 ### 왜 3-Tier를 쓰지 않았나?
 - API 중심 3-Tier 대신, **Mobile(뷰+도메인) ↔ 경량 백엔드**로 단순화.  
 - 모델 추론·도메인 로직이 단말에 있어 **왕복 지연 최소화** 및 **네트워크 독립성** 확보.
 
-### 저장소 설계(요약)
+### 저장소 설계
 - **로컬(기본)**: 기록 스냅샷, 일/주/월 통계 캐시, 사용자 설정  
-- **클라우드(옵션)**: 사용자별 합산 통계, 원격 플래그, 교육 자료 메타
 
 
 
