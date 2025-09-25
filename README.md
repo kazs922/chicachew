@@ -1,15 +1,13 @@
 # 🪥 치카츄 (ChicaChew)
-### AI 기반 어린이 양치 코치 앱 (Flutter)
+### 딥러닝 기반 어린이 양치 코치 앱
 ---
 <p align="center">
   <img width="240" height="360" alt="Gemini_Generated_Image_p9unsp9unsp9unsp" src="https://github.com/user-attachments/assets/c43c5723-7853-4542-bb28-8523ed4a9d77" />
 </p>
 
-<p align="center">
-  성분표 속 감미료, 이제 쉽게 읽자
 </p>
 <p align="center">
-  <strong>감미료별 혈당 영향 정보 제공 & 안전한 대체 제품 추천 솔루션</strong>
+  <strong>딥러닝 기반의 어린이 맞춤형 구강 관리 교육 AI 솔루션</strong>
 </p>
 
 <h2>🍀 Our Team</h2>
@@ -23,10 +21,10 @@
     <th style="padding: 10px; font-size: 16px;">💡 김예은</th>
   </tr>
   <tr>
-    <td align="center" style="padding: 10px; font-size: 14px;"><strong>데이터 전처리 &<br> 모델 개발 구현</strong></td>
-    <td align="center" style="padding: 10px; font-size: 14px;"><strong>데이터 전처리 &<br> 모델 개발 구현</strong></td>
+    <td align="center" style="padding: 10px; font-size: 14px;"><strong>모델 개발 구현</strong></td>
+    <td align="center" style="padding: 10px; font-size: 14px;"><strong>데이터 전처리 &<br> 모델 성능 개선</strong></td>
     <td align="center" style="padding: 10px; font-size: 14px;"><strong>APP 개발 & <br>UI 디자인</strong></td>
-    <td align="center" style="padding: 10px; font-size: 14px;"><strong>기획 & <br>UI 디자인</strong></td>
+    <td align="center" style="padding: 10px; font-size: 14px;"><strong>기획 & <br>자료 조사</strong></td>
     <td align="center" style="padding: 10px; font-size: 14px;"><strong>기획 & <br>데이터 수집</strong></td>
   </tr>
 </table>
