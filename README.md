@@ -34,34 +34,65 @@
 
 <table>
   <tr>
-    <th align="left"> 백엔드</th>
+    <th align="left">데이터 수집 · 라벨링</th>
     <td>
-      <img src="https://img.shields.io/badge/Python-3.11-blue?logo=python"/>
-      <img src="https://img.shields.io/badge/FastAPI-0.115.12-00C7B7?logo=fastapi"/>
-      <img src="https://img.shields.io/badge/Uvicorn-0.34.2-000000?logo=uvicorn&logoColor=white"/>
-      <img src="https://img.shields.io/badge/Render-Deployed-4a4a4a?logo=render&logoColor=white"/>
+      <img src="https://img.shields.io/badge/Custom%20Recorder-따라츄-6A5ACD"/>
+      <img src="https://img.shields.io/badge/MediaPipe-Tasks-14A0C4?logo=google"/>
+      <img src="https://img.shields.io/badge/OpenCV-Tooling-5C3EE8?logo=opencv&logoColor=white"/>
+      <img src="https://img.shields.io/badge/LOSO-CV%20Protocol-2E7D32"/>
     </td>
   </tr>
   <tr>
-    <th align="left"> 데이터 처리 / ML</th>
+    <th align="left">데이터 처리 / EDA</th>
     <td>
       <img src="https://img.shields.io/badge/Pandas-2.2.3-150458?logo=pandas&logoColor=white"/>
-      <img src="https://img.shields.io/badge/Numpy-2.2.5-013243?logo=numpy&logoColor=white"/>
+      <img src="https://img.shields.io/badge/NumPy-2.2.5-013243?logo=numpy&logoColor=white"/>
       <img src="https://img.shields.io/badge/scikit--learn-1.6.1-F7931E?logo=scikitlearn"/>
-      <img src="https://img.shields.io/badge/Konlpy-0.6.0-00CED1"/>
-      <img src="https://img.shields.io/badge/Jamo-0.4.1-FF69B4"/>
-      <img src="https://img.shields.io/badge/Rapidfuzz-3.13.0-820AD1"/>
+      <img src="https://img.shields.io/badge/Matplotlib-Plotting-11557C?logo=matplotlib"/>
+      <img src="https://img.shields.io/badge/RapidFuzz-3.13.0-820AD1"/>
+      <img src="https://img.shields.io/badge/KoNLPy-0.6.0-00CED1"/>
+      <img src="https://img.shields.io/badge/jamo-0.4.1-FF69B4"/>
     </td>
   </tr>
   <tr>
-    <th align="left"> 앱 개발</th>
+    <th align="left">모델링 · 최적화</th>
     <td>
+      <img src="https://img.shields.io/badge/TensorFlow-Training-FF6F00?logo=tensorflow&logoColor=white"/>
+      <img src="https://img.shields.io/badge/CNN+GRU-Sequence%20Model-009688"/>
+      <img src="https://img.shields.io/badge/Optuna-HPO-792EE5"/>
+      <img src="https://img.shields.io/badge/Time%20Features-Velocity%20%7C%20Angles-455A64"/>
+      <img src="https://img.shields.io/badge/Feature%20Set-Hand%2021%20%2B%20Face%20Cues-37474F"/>
+    </td>
+  </tr>
+  <tr>
+    <th align="left">온디바이스 추론</th>
+    <td>
+      <img src="https://img.shields.io/badge/TFLite-Interpreter-34A853?logo=tensorflow&logoColor=white"/>
+      <img src="https://img.shields.io/badge/tflite_flutter-FF6F00"/>
+      <img src="https://img.shields.io/badge/SELECT_TF_OPS/Unroll-GRU%20Export-546E7A"/>
+      <img src="https://img.shields.io/badge/Latency-~ms%20Level-757575"/>
+    </td>
+  </tr>
+  <tr>
+    <th align="left">앱 개발</th>
+    <td>
+      <!-- ⬇️ 고정 항목 -->
       <img src="https://img.shields.io/badge/Flutter-3.35.3-02569B?logo=flutter"/>
       <img src="https://img.shields.io/badge/Dart-3.9.2-0175C2?logo=dart"/>
-      <img src="https://img.shields.io/badge/Android_Studio-Nawhal 3-3DDC84?logo=androidstudio"/>
+      <img src="https://img.shields.io/badge/Android_Studio-Narwhal%203-3DDC84?logo=androidstudio"/>
+    </td>
+  </tr>
+  <tr>
+    <th align="left">실험 · 재현 / 협업</th>
+    <td>
+      <img src="https://img.shields.io/badge/Jupyter-Notebooks-F37626?logo=jupyter&logoColor=white"/>
+      <img src="https://img.shields.io/badge/Weights%20%26%20Artifacts-Tracked-455A64"/>
+      <img src="https://img.shields.io/badge/Bootstrap%20CI-Stats-607D8B"/>
+      <img src="https://img.shields.io/badge/Git-GitHub-181717?logo=github"/>
     </td>
   </tr>
 </table>
+
 
 ## ✨ 프로젝트 주요 기능
 
