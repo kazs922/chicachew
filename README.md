@@ -5,227 +5,168 @@
   <img width="240" height="360" alt="Gemini_Generated_Image_p9unsp9unsp9unsp" src="https://github.com/user-attachments/assets/c43c5723-7853-4542-bb28-8523ed4a9d77" />
 </p>
 
-
 <p align="center">
-  아이의 양치, **재미**와 **데이터**로 코칭합니다.
+  성분표 속 감미료, 이제 쉽게 읽자
 </p>
 <p align="center">
-  <strong>13구역 실시간 가이드 · 얼굴 정렬 체크 · 레이더 진행률 · 스토리·보상 루프</strong>
+  <strong>감미료별 혈당 영향 정보 제공 & 안전한 대체 제품 추천 솔루션</strong>
 </p>
 
+<h2>🍀 Our Team</h2>
 
----
+<table align="center">
+  <tr>
+    <th style="padding: 10px; font-size: 16px;">👨‍💻 성태희</th>
+    <th style="padding: 10px; font-size: 16px;">👨‍💻 장동민</th>
+    <th style="padding: 10px; font-size: 16px;">📱 양동현</th>
+    <th style="padding: 10px; font-size: 16px;">💡 이태영</th>
+    <th style="padding: 10px; font-size: 16px;">💡 김예은</th>
+  </tr>
+  <tr>
+    <td align="center" style="padding: 10px; font-size: 14px;"><strong>데이터 전처리 &<br> 모델 개발 구현</strong></td>
+    <td align="center" style="padding: 10px; font-size: 14px;"><strong>데이터 전처리 &<br> 모델 개발 구현</strong></td>
+    <td align="center" style="padding: 10px; font-size: 14px;"><strong>APP 개발 & <br>UI 디자인</strong></td>
+    <td align="center" style="padding: 10px; font-size: 14px;"><strong>기획 & <br>UI 디자인</strong></td>
+    <td align="center" style="padding: 10px; font-size: 14px;"><strong>기획 & <br>데이터 수집</strong></td>
+  </tr>
+</table>
+
 
 ## ⚙️ 기술 스택
 
 <table>
   <tr>
-    <th align="left">앱</th>
+    <th align="left"> 백엔드</th>
     <td>
-      <img src="https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter"/>
-      <img src="https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart"/>
-      <img src="https://img.shields.io/badge/camera-Plugin-4a4a4a"/>
-      <img src="https://img.shields.io/badge/permission__handler-Plugin-4a4a4a"/>
-      <img src="https://img.shields.io/badge/android_studio-Narwhal 3"/>
+      <img src="https://img.shields.io/badge/Python-3.11-blue?logo=python"/>
+      <img src="https://img.shields.io/badge/FastAPI-0.115.12-00C7B7?logo=fastapi"/>
+      <img src="https://img.shields.io/badge/Uvicorn-0.34.2-000000?logo=uvicorn&logoColor=white"/>
+      <img src="https://img.shields.io/badge/Render-Deployed-4a4a4a?logo=render&logoColor=white"/>
     </td>
   </tr>
   <tr>
-    <th align="left">온디바이스 ML</th>
+    <th align="left"> 데이터 처리 / ML</th>
     <td>
-      <img src="https://img.shields.io/badge/TensorFlow%20Lite-tflite__flutter-FF6F00?logo=tensorflow"/>
-      <img src="https://img.shields.io/badge/Model-CNN%2BLSTM-FF6F00"/>
-      <img src="https://img.shields.io/badge/MediaPipe-Tasks%20Bridge-00C853"/>
+      <img src="https://img.shields.io/badge/Pandas-2.2.3-150458?logo=pandas&logoColor=white"/>
+      <img src="https://img.shields.io/badge/Numpy-2.2.5-013243?logo=numpy&logoColor=white"/>
+      <img src="https://img.shields.io/badge/scikit--learn-1.6.1-F7931E?logo=scikitlearn"/>
+      <img src="https://img.shields.io/badge/Konlpy-0.6.0-00CED1"/>
+      <img src="https://img.shields.io/badge/Jamo-0.4.1-FF69B4"/>
+      <img src="https://img.shields.io/badge/Rapidfuzz-3.13.0-820AD1"/>
     </td>
   </tr>
   <tr>
-    <th align="left">스토리지</th>
+    <th align="left"> 클라우드 / DB</th>
     <td>
-      <img src="https://img.shields.io/badge/SharedPreferences-Local-4a4a4a"/>
-      <img src="https://img.shields.io/badge/Firebase-Optional-FFCA28?logo=firebase"/>
-      <img src="https://img.shields.io/badge/FastAPI-Optional-009688?logo=fastapi"/>
+      <img src="https://img.shields.io/badge/Firebase_Admin-6.1.0-FFCA28?logo=firebase"/>
+      <img src="https://img.shields.io/badge/Firestore-2.13.1-FFCA28?logo=googlecloud"/>
+    </td>
+  </tr>
+  <tr>
+    <th align="left"> 앱 개발</th>
+    <td>
+      <img src="https://img.shields.io/badge/Flutter-3.22.0-02569B?logo=flutter"/>
+      <img src="https://img.shields.io/badge/Dart-3.3.3-0175C2?logo=dart"/>
+      <img src="https://img.shields.io/badge/Android_Studio-Meerkat-3DDC84?logo=androidstudio"/>
     </td>
   </tr>
 </table>
 
----
+## ✨ 프로젝트 주요 기능
 
-## ✨ 주요 기능
-
-### 🔎 FaceCheck (얼굴 정렬 가이드)  
-> 카메라에서 얼굴 위치/각도를 파악해 "가까이/멀리/정면" 등을 실시간 안내합니다.
-
-<div align="center">
-  
-<table>
-  <tr>
-    <th>정렬 안내</th>
-    <th>거리 가이드</th>
-    <th>각도 가이드</th>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/screenshots/face_check_align.png" width="200"/></td>
-    <td align="center"><img src="docs/screenshots/face_check_distance.png" width="200"/></td>
-    <td align="center"><img src="docs/screenshots/face_check_angle.png" width="200"/></td>
-  </tr>
-</table>
-
-</div>
-
-### 🪥 LiveBrush (실시간 13구역 양치 가이드)
-> TFLite 모델로 구역/자세를 분류하고 **레이더 오버레이**로 진행률을 시각화합니다.
-
+### 🔍 제품 검색  
+> 다양한 제품을 검색할 수 있는 기능을 제공합니다.  
+> 카테고리, 브랜드, 제품명을 기준으로 탐색할 수 있어요!
 <div align="center">
 
 <table>
   <tr>
-    <th>13구역 예측</th>
-    <th>레이더 진행률</th>
-    <th>TTS 스토리</th>
+    <th align="center">제품명 검색</th>
+    <th align="center">카테고리 탐색</th>
+    <th align="center">브랜드관 탐색</th>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/live_predict.png" width="200"/></td>
-    <td align="center"><img src="docs/screenshots/live_radar.png" width="200"/></td>
-    <td align="center"><img src="docs/screenshots/live_tts.png" width="200"/></td>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/6ad35124-25e8-42e2-904e-4e7a2191cd19" width="200"/>
+    </td>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/5c29d2e4-121d-4347-8a70-74c59148785a" width="200"/>
+    </td>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/243d2ab1-de2c-4c1b-98a5-0344260cc9e8" width="200"/>
+    </td>
   </tr>
 </table>
 
 </div>
 
-### 🫗 가글 권장 화면 (30초 타이머)
-> 양치 종료 후 **Lottie 애니메이션 + 원형 타이머**로 가글 습관을 형성합니다. 완료 시 자동으로 결과 화면으로 이동합니다.
+### 🧪 감미료 성분 분석
+> 찾은 제품의 감미료 성분 정보를 탐색하고, 더 건강한 대체 제품을 추천 받아 보세요!
 
 <div align="center">
-  <img src="docs/screenshots/mouthwash_timer.png" width="280"/>
+
+<table>
+  <tr>
+    <th align="center">감미료 분류 정보</th>
+    <th align="center">영양성분 표</th>
+    <th align="center">대체제품 추천</th>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/6311c116-d378-49e2-b375-f64af89028cb" width="200"/>
+    </td>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/96519267-8d4f-4c67-9ea0-4fcb36679e2a" width="200"/>
+    </td>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/623c8f0c-1827-4140-af24-bbb69786f5fc" width="200"/>
+    </td>
+  </tr>
+</table>
+
 </div>
-
-### 🎯 게임화 & 보상
-- **미션/포인트/스트릭** 시스템으로 꾸준함을 유도
-- 어린이 친화적인 **캐릭터 스토리**와 대사(TTS)
-
----
-
-## 🧭 사용자 시나리오
-1. **FaceCheck**에서 얼굴 정렬을 맞춘다.  
-2. **LiveBrush**로 13구역 양치 미션을 수행한다.  
-3. **가글 화면**에서 30초 타이머를 완료한다.  
-4. **결과/리포트**에서 보상과 기록을 확인한다.
-
----
-
-## 🧩 화면 미리보기
-
-<p align="center">
-  <img src="docs/screenshots/home.png" width="26%"/>
-  <img src="docs/screenshots/face_check.png" width="26%"/>
-  <img src="docs/screenshots/live_brush.png" width="26%"/>
-</p>
-
-> 스크린샷은 `docs/screenshots/`에 저장해 상대 경로로 연결하세요.
-
----
 
 ## 🔧 아키텍처 다이어그램
 
 <p align="center">
-  <img src="docs/architecture.png" alt="architecture-diagram" width="720"/>
+  <img src="https://github.com/user-attachments/assets/0a12bfff-dec4-4a52-bad2-9afc72c52353" alt="architecture-diagram" width="700"/>
 </p>
 
-<details>
-<summary>Mermaid로 대체 사용</summary>
+> 전체 시스템은 **3-Tier 구조 기반의 경량 아키텍처**입니다.  
+ - 빠른 응답성과 구조 단순화를 위해 3-Tier를 개조하여 경량화했습니다.  
+ - 별도의 Service Layer 없이, API 내부에서 모든 로직을 직접 처리하도록 구성했습니다.
 
-```mermaid
-flowchart LR
-  A[Camera Stream] --> B[Preprocess]
-  B --> C[TFLite (13 zones)]
-  C --> D[Postprocess & Smoothing]
-  D --> E[Radar Overlay UI]
-  A --> F[Face Alignment Check]
-  E --> G[Story/TTS & Rewards]
-  subgraph Storage
-    H[Local Stores: Profiles/BP/Streak/Records]
-  end
-  G --> H
-```
-</details>
+> **Firebase**를 데이터 저장소로, **FastAPI**를 중심으로 검색 / 분류 / 추천 기능을 제공합니다.  
+ - 제품 데이터는 Firebase에 상세 필드를 모두 포함한 형태로 업로드되어 있습니다.  
+ - 데이터베이스는 복잡한 관계형 구조를 지양하고, 단순성과 명확성을 우선했습니다.
 
----
+> 앱은 **Flutter + Dart**로 개발되어 사용자 인터페이스를 담당합니다.
 
-## 🗂 폴더 구조 (요약)
-```
-lib/
-  app/
-    app_router.dart
-  core/
-    bp/                 # 포인트/스트릭 저장소
-    landmarks/          # Face/Hands 브리지 (MpTasks)
-    ml/                 # 모델 로딩·전처리·후처리
-    storage/            # 로컬 스토어 (프로필/기록)
-    tts/                # TTS 매니저
-  features/
-    splash/             # 인트로/튜토리얼 (intro_step1/2)
-    profile/            # 프로필 추가/선택
-    home/               # 홈 대시보드
-    brush_guide/        # FaceCheck, LiveBrush, 결과
-    education/          # 튜토리얼 콘텐츠
-assets/
-  images/ lottie/ models/
-docs/
-  cover.png
-  screenshots/
-```
+## 🛠️ My Work
 
----
+### APP 구현
+- **제품 검색 기능**:
+사용자는 제품명, 브랜드, 카테고리 등을 기준으로 원하는 식품을 검색할 수 있습니다. 검색 결과는 실시간으로 반영되며, 직관적인 UI를 통해 쉽게 탐색할 수 있도록 구성되어 있습니다.
 
-## 🏁 빠른 시작
-```bash
-# 의존성 설치
-flutter pub get
+- **성분 안전도 분석**:
+각 식품의 전성분을 분석하여 Safe, Warning, Caution, Etc의 4가지 등급으로 분류하고, 이를 시각적으로 한눈에 볼 수 있게 제공합니다. 이를 통해 사용자들이 어떤 성분이 건강에 안전한지 쉽게 확인할 수 있습니다.
 
-# (필수) 에셋/모델 등록 - pubspec.yaml
-# assets/models/brush_zone.tflite
-# assets/images/*, assets/lottie/*
 
-# 실기기 실행 (권장)
-flutter run --release
-```
+- **카테고리 및 브랜드별 탐색**:
+제품은 다양한 식품 카테고리와 브랜드 기준으로 분류되어 있어, 사용자가 원하는 범주 내에서 제품을 빠르게 찾아볼 수 있습니다.
 
-**Android 권한 (`android/app/src/main/AndroidManifest.xml`)**
-```xml
-<uses-permission android:name="android.permission.CAMERA"/>
-<uses-permission android:name="android.permission.RECORD_AUDIO"/>
-<uses-permission android:name="android.permission.INTERNET"/>
-```
+- **로딩 애니메이션 적용**:
+앱의 여러 화면에는 Lottie 기반의 로딩 애니메이션이 적용되어 있어, 로딩 중에도 사용자에게 시각적 피드백을 제공하여 UX를 향상시킵니다.
 
-**런타임 권한 예시**
-```dart
-import 'package:permission_handler/permission_handler.dart';
-await [Permission.camera, Permission.microphone].request();
-```
+- **공통 사이드바 및 바텀 네비게이션**:
+모든 화면에서 동일한 사이드 메뉴와 하단 네비게이션 바를 제공하여 앱 내 어디서든 쉽게 원하는 기능으로 이동할 수 있도록 구성되어 있습니다.
 
----
+- **오늘의 혈당 상식 배너**:
+홈 화면에는 매번 랜덤하게 변경되는 혈당 상식 배너가 표시되어, 사용자에게 유용한 건강 정보를 자연스럽게 제공합니다.
 
-## 🗺 로드맵
-- [x] FaceCheck 기본 정렬 가이드
-- [x] 13구역 분류 & 레이더 시각화
-- [x] 스토리·TTS 보상 루프
-- [ ] **가글 권장 화면(30초 타이머)**
-- [ ] 결과/리포트 고도화
-- [ ] 모델 경량화 & 정확도 향상
-- [ ] i18n(ko/en)
-- [ ] 원격 설정(모델 버전 토글)
+- **추천 상품 탭**:
+제품 상세 화면에는 ‘전성분’, ‘영양성분’ 탭 외에도 ‘추천상품’ 탭이 추가되어, 해당 제품과 관련 있는 다른 제로슈거 식품을 함께 소개합니다. 이로써 더 많은 제품을 탐색할 수 있는 기회를 제공합니다.
 
----
-
-## 🙋 My Work (핵심 기여)
-- **실시간 카메라 파이프라인** 구축: 프레임 스로틀링/버퍼링, 디바이스 최적화
-- **TFLite 엔진(BrushModelEngine)**: 입력 자동 판별, XNNPACK/NNAPI 토글, 다중 출력 핸들링
-- **후처리 & smoothing**: softmax → argmax → 구간별 가중 이동평균
-- **레이더 오버레이**: 13각형 폴리곤 채움/외곽선 대비 최적화
-- **FaceCheck**: MpTasks 브리지, 정렬/거리/각도 힌트 UI
-- **스토리·TTS 루프**: TtsManager + StoryDirector, 보상/미션 시스템
-- **공통 네비게이션/사이드바**: 모든 페이지에서 동일 동작
-
----
 
 ## 📄 라이선스
 MIT © 2025 ChicaChew Team
