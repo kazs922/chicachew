@@ -96,57 +96,63 @@
 
 ## ✨ 프로젝트 주요 기능
 
-### 🔍 제품 검색  
-> 다양한 제품을 검색할 수 있는 기능을 제공합니다.  
-> 카테고리, 브랜드, 제품명을 기준으로 탐색할 수 있어요!
+<h2>🧩 솔루션 한눈에 보기</h2>
+<p align="center"><sub>앱의 주요 화면을 먼저 빠르게 훑어보세요.</sub></p>
+
 <div align="center">
 
+<!-- 1행: 3개 카드 -->
 <table>
   <tr>
-    <th align="center">제품명 검색</th>
-    <th align="center">카테고리 탐색</th>
-    <th align="center">브랜드관 탐색</th>
+    <th align="center">홈 화면</th>
+    <th align="center">브러쉬 타임</th>
+    <th align="center">교육 자료</th>
   </tr>
   <tr>
     <td align="center">
-      <img src="https://github.com/user-attachments/assets/6ad35124-25e8-42e2-904e-4e7a2191cd19" width="200"/>
+      <img width="200" alt="home" src="https://github.com/user-attachments/assets/ea8f5204-37c3-4d15-8c87-e975d76a2274" />
+      <br/><sub>오늘의 미션·BP·스트릭 요약</sub>
     </td>
     <td align="center">
-      <img src="https://github.com/user-attachments/assets/5c29d2e4-121d-4347-8a70-74c59148785a" width="200"/>
+      <img src="https://github.com/user-attachments/assets/xxxx_brush.png" width="200" alt="브러쉬 타임"/>
+      <br/><sub>얼굴 정렬·라이브 안내·13구역 레이더</sub>
     </td>
     <td align="center">
-      <img src="https://github.com/user-attachments/assets/243d2ab1-de2c-4c1b-98a5-0344260cc9e8" width="200"/>
+      <img src="https://github.com/user-attachments/assets/xxxx_edu.png" width="200" alt="교육 자료"/>
+      <br/><sub>양치 튜토리얼·올바른 자세 가이드</sub>
+    </td>
+  </tr>
+</table>
+
+<br/>
+
+<!-- 2행: 2개 카드 -->
+<table>
+  <tr>
+    <th align="center">리포트</th>
+    <th align="center">마이페이지</th>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/xxxx_report.png" width="200" alt="리포트"/>
+      <br/><sub>구역별 점수·일/주/월 기록·가글 이후 요약</sub>
+    </td>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/xxxx_mypage.png" width="200" alt="마이페이지"/>
+      <br/><sub>프로필·아바타·설정·보상</sub>
     </td>
   </tr>
 </table>
 
 </div>
 
-### 🧪 감미료 성분 분석
-> 찾은 제품의 감미료 성분 정보를 탐색하고, 더 건강한 대체 제품을 추천 받아 보세요!
+<!-- 빠른 이동 링크 -->
+<p align="center">
+  <a href="#-브러쉬-타임--핵심-기능">브러쉬 타임 자세히 보기</a> ·
+  <a href="#-리포트--핵심-기능">리포트 자세히 보기</a>
+</p>
 
-<div align="center">
 
-<table>
-  <tr>
-    <th align="center">감미료 분류 정보</th>
-    <th align="center">영양성분 표</th>
-    <th align="center">대체제품 추천</th>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="https://github.com/user-attachments/assets/6311c116-d378-49e2-b375-f64af89028cb" width="200"/>
-    </td>
-    <td align="center">
-      <img src="https://github.com/user-attachments/assets/96519267-8d4f-4c67-9ea0-4fcb36679e2a" width="200"/>
-    </td>
-    <td align="center">
-      <img src="https://github.com/user-attachments/assets/623c8f0c-1827-4140-af24-bbb69786f5fc" width="200"/>
-    </td>
-  </tr>
-</table>
-
-</div>
 
 ## 🔧 아키텍처 다이어그램
 
