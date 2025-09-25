@@ -102,23 +102,26 @@
 <div align="center">
 
 <!-- 1행: 3개 카드 -->
-<table>
+<table style="border-collapse:collapse;">
   <tr>
-    <th align="center">홈 화면</th>
-    <th align="center">브러쉬 타임</th>
-    <th align="center">교육 자료</th>
+    <th align="center" style="padding:8px;border:1px solid #e5e7eb;">홈 화면</th>
+    <th align="center" style="padding:8px;border:1px solid #e5e7eb;">브러쉬 타임</th>
+    <th align="center" style="padding:8px;border:1px solid #e5e7eb;">교육 자료</th>
   </tr>
   <tr>
-    <td align="center">
-      <img width="200" alt="home" src="https://github.com/user-attachments/assets/ea8f5204-37c3-4d15-8c87-e975d76a2274" />
+    <td align="center" style="padding:8px;border:1px solid #e5e7eb;">
+      <img src="https://github.com/user-attachments/assets/ea8f5204-37c3-4d15-8c87-e975d76a2274"
+           alt="홈 화면" width="220"/>
       <br/><sub>오늘의 미션·BP·스트릭 요약</sub>
     </td>
-    <td align="center">
-      <img src="https://github.com/user-attachments/assets/xxxx_brush.png" width="200" alt="브러쉬 타임"/>
+    <td align="center" style="padding:8px;border:1px solid #e5e7eb;">
+      <img src="https://github.com/user-attachments/assets/d47c0f81-3e40-4d00-bb9d-34804b459765"
+           alt="브러쉬 타임" width="220"/>
       <br/><sub>얼굴 정렬·라이브 안내·13구역 레이더</sub>
     </td>
-    <td align="center">
-      <img src="https://github.com/user-attachments/assets/xxxx_edu.png" width="200" alt="교육 자료"/>
+    <td align="center" style="padding:8px;border:1px solid #e5e7eb;">
+      <img src="https://github.com/user-attachments/assets/3ed02c72-8129-45b9-979d-3dd9d4d1cdf8"
+           alt="교육 자료" width="220"/>
       <br/><sub>양치 튜토리얼·올바른 자세 가이드</sub>
     </td>
   </tr>
@@ -127,24 +130,27 @@
 <br/>
 
 <!-- 2행: 2개 카드 -->
-<table>
+<table style="border-collapse:collapse;">
   <tr>
-    <th align="center">리포트</th>
-    <th align="center">마이페이지</th>
+    <th align="center" style="padding:8px;border:1px solid #e5e7eb;">리포트</th>
+    <th align="center" style="padding:8px;border:1px solid #e5e7eb;">마이페이지</th>
   </tr>
   <tr>
-    <td align="center">
-      <img src="https://github.com/user-attachments/assets/xxxx_report.png" width="200" alt="리포트"/>
-      <br/><sub>구역별 점수·일/주/월 기록·가글 이후 요약</sub>
+    <td align="center" style="padding:8px;border:1px solid #e5e7eb;">
+      <img src="https://github.com/user-attachments/assets/eb53aa5e-bae5-48ea-8b85-872b8afaa79d"
+           alt="리포트" width="220"/>
+      <br/><sub>구역별 점수·일/주/월 기록 요약</sub>
     </td>
-    <td align="center">
-      <img src="https://github.com/user-attachments/assets/xxxx_mypage.png" width="200" alt="마이페이지"/>
-      <br/><sub>프로필·아바타·설정·보상</sub>
+    <td align="center" style="padding:8px;border:1px solid #e5e7eb;">
+      <img src="https://github.com/user-attachments/assets/766fe59a-661d-456b-b842-29f75be4bb02"
+           alt="마이페이지" width="220"/>
+      <br/><sub>프로필·아바타·설정</sub>
     </td>
   </tr>
 </table>
 
 </div>
+
 
 <!-- 빠른 이동 링크 -->
 <p align="center">
