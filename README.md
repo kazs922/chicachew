@@ -54,18 +54,11 @@
     </td>
   </tr>
   <tr>
-    <th align="left"> 클라우드 / DB</th>
-    <td>
-      <img src="https://img.shields.io/badge/Firebase_Admin-6.1.0-FFCA28?logo=firebase"/>
-      <img src="https://img.shields.io/badge/Firestore-2.13.1-FFCA28?logo=googlecloud"/>
-    </td>
-  </tr>
-  <tr>
     <th align="left"> 앱 개발</th>
     <td>
-      <img src="https://img.shields.io/badge/Flutter-3.22.0-02569B?logo=flutter"/>
-      <img src="https://img.shields.io/badge/Dart-3.3.3-0175C2?logo=dart"/>
-      <img src="https://img.shields.io/badge/Android_Studio-Meerkat-3DDC84?logo=androidstudio"/>
+      <img src="https://img.shields.io/badge/Flutter-3.35.3-02569B?logo=flutter"/>
+      <img src="https://img.shields.io/badge/Dart-3.9.2-0175C2?logo=dart"/>
+      <img src="https://img.shields.io/badge/Android_Studio-Nawhal 3-3DDC84?logo=androidstudio"/>
     </td>
   </tr>
 </table>
