@@ -177,88 +177,94 @@
   <summary><b>🪥 브러쉬 타임 – 상세 보기</b> (클릭하여 펼치기)</summary>
   <div style="margin:12px 0;">
 
-    <div align="center" style="margin-bottom:14px;">
-      <img
-        src="https://github.com/user-attachments/assets/2fa99407-9447-4c4d-978e-3a3d17522c51"
-        alt="브러쉬 타임: 메뉴 → 솔루션 화면(레이더 실시간, 피드백, 얼굴 인식 알림)"
-        style="width:100%; max-width:840px; height:auto;"
-      />
-    </div>
+  <!-- 브러쉬 타임 흐름 -->
+<div align="center" style="margin-bottom:14px;">
+  <img
+    src="https://github.com/user-attachments/assets/2fa99407-9447-4c4d-978e-3a3d17522c51"
+    alt="브러쉬 타임: 메뉴 → 솔루션 화면(레이더 실시간, 피드백, 얼굴 인식 알림)"
+    style="width:100%; max-width:840px; height:auto;"
+  />
+</div>
 
-    <table align="center" style="border-collapse:collapse; table-layout:fixed; width:100%; max-width:900px;">
-      <tr>
-        <th style="border:1px solid #e5e7eb; padding:10px; width:42%;">주요 기능</th>
-        <th style="border:1px solid #e5e7eb; padding:10px; width:58%;">상세 설명</th>
-      </tr>
-      <tr>
-        <td style="border:1px solid #e5e7eb; padding:12px; vertical-align:top;">
-          <ul>
-            <li>레이더 진행도 <b>실시간 반영</b></li>
-            <li><b>TTS/진동</b> 실시간 피드백</li>
-            <li><b>얼굴 인식 여부</b> 알림 멘트</li>
-            <li>상단 <b>타이머</b>로 남은 시간 표시</li>
-          </ul>
-        </td>
-        <td style="border:1px solid #e5e7eb; padding:12px; vertical-align:top;">
-          <ul>
-            <li>현재 구역 채움 정도가 즉시 레이더에 반영되어 몰입감 있는 진행</li>
-            <li>진행 구간에 따라 멘트/햅틱 강도 차등 적용(예: 미흡→경고, 양호→격려)</li>
-            <li>얼굴이 프레임 밖이면 <b>정렬 안내 멘트</b> 노출로 자세 보정</li>
-            <li>플로우 끊김 없이 <b>가글 단계</b>로 자연 전환</li>
-          </ul>
-        </td>
-      </tr>
-    </table>
+<!-- 핵심 포인트 표 -->
+<table align="center" style="border-collapse:collapse; table-layout:fixed; width:100%; max-width:900px;">
+  <tr>
+    <th style="border:1px solid #e5e7eb; padding:10px; width:42%;">주요 기능</th>
+    <th style="border:1px solid #e5e7eb; padding:10px; width:58%;">상세 설명</th>
+  </tr>
+  <tr>
+    <td style="border:1px solid #e5e7eb; padding:12px; vertical-align:top;">
+      <ul>
+        <li>레이더 진행도 <b>실시간 반영</b></li>
+        <li><b>TTS/진동</b> 실시간 피드백</li>
+        <li><b>얼굴 인식 여부</b> 알림 멘트</li>
+        <li>상단 <b>타이머</b>로 남은 시간 표시</li>
+      </ul>
+    </td>
+    <td style="border:1px solid #e5e7eb; padding:12px; vertical-align:top;">
+      <ul>
+        <li>현재 구역 채움 정도가 즉시 레이더에 반영되어 몰입감 있는 진행</li>
+        <li>진행 구간에 따라 멘트/햅틱 강도 차등 적용(미흡→경고, 양호→격려)</li>
+        <li>얼굴이 프레임 밖이면 <b>정렬 안내 멘트</b>로 자세 보정</li>
+        <li>플로우 끊김 없이 <b>가글 단계</b>로 자연 전환</li>
+      </ul>
+    </td>
+  </tr>
+</table>
 
-    <div align="center" style="margin:12px 0;">
-      <table style="border-collapse:collapse; width:100%; max-width:900px;">
-        <tr>
-          <th style="border:1px solid #e5e7eb; padding:8px; width:20%;">진행도 구간</th>
-          <th style="border:1px solid #e5e7eb; padding:8px;">피드백 멘트 예시</th>
-        </tr>
-        <tr>
-          <td style="border:1px solid #e5e7eb; padding:8px;">0~49% (미흡)</td>
-          <td style="border:1px solid #e5e7eb; padding:8px;">“(해당 부위) 아직 부족해요! 안쪽 면도 닦을 수 있을까요?”</td>
-        </tr>
-        <tr>
-          <td style="border:1px solid #e5e7eb; padding:8px;">50~99% (양호)</td>
-          <td style="border:1px solid #e5e7eb; padding:8px;">“좋아요! 거의 다 왔어요. 조금만 더!”</td>
-        </tr>
-        <tr>
-          <td style="border:1px solid #e5e7eb; padding:8px;">100% (완료)</td>
-          <td style="border:1px solid #e5e7eb; padding:8px;">“완벽! 다음 부위로 넘어가볼까요?”</td>
-        </tr>
-      </table>
-    </div>
+<!-- 구간별 피드백 예시 -->
+<div align="center" style="margin:12px 0;">
+  <table style="border-collapse:collapse; width:100%; max-width:900px;">
+    <tr>
+      <th style="border:1px solid #e5e7eb; padding:8px; width:20%;">진행도 구간</th>
+      <th style="border:1px solid #e5e7eb; padding:8px;">피드백 멘트 예시</th>
+    </tr>
+    <tr>
+      <td style="border:1px solid #e5e7eb; padding:8px;">0~49% (미흡)</td>
+      <td style="border:1px solid #e5e7eb; padding:8px;">“(해당 부위) 아직 부족해요! 안쪽 면도 닦아볼까요?”</td>
+    </tr>
+    <tr>
+      <td style="border:1px solid #e5e7eb; padding:8px;">50~99% (양호)</td>
+      <td style="border:1px solid #e5e7eb; padding:8px;">“좋아요! 거의 다 왔어요. 조금만 더!”</td>
+    </tr>
+    <tr>
+      <td style="border:1px solid #e5e7eb; padding:8px;">100% (완료)</td>
+      <td style="border:1px solid #e5e7eb; padding:8px;">“완벽! 다음 부위로 넘어가요.”</td>
+    </tr>
+  </table>
+</div>
 
-    <hr style="margin:18px 0;"/>
+<hr style="margin:18px 0;"/>
 
-    <div align="center" style="margin-bottom:14px;">
-      <img
-        src="https://github.com/user-attachments/assets/b8952427-bc17-4ba6-82a6-f266acf55919"
-        alt="가글 화면 → 최종 결과: 레이더로 전반, 하단에 부위별 수치화"
-        style="width:100%; max-width:840px; height:auto;"
-      />
-    </div>
+<!-- 가글 → 최종 결과 흐름 -->
+<div align="center" style="margin-bottom:14px;">
+  <img
+    src="https://github.com/user-attachments/assets/b8952427-bc17-4ba6-82a6-f266acf55919"
+    alt="가글 화면 → 최종 결과: 레이더 요약 + 부위별 수치화"
+    style="width:100%; max-width:840px; height:auto;"
+  />
+</div>
 
-    <table align="center" style="border-collapse:collapse; table-layout:fixed; width:100%; max-width:900px;">
-      <tr>
-        <th style="border:1px solid #e5e7eb; padding:10px; width:42%;">화면 구성</th>
-        <th style="border:1px solid #e5e7eb; padding:10px; width:58%;">설명</th>
-      </tr>
-      <tr>
-        <td style="border:1px solid #e5e7eb; padding:12px; vertical-align:top;">
-          <b>가글(30초)</b> → <b>최종 결과</b><br/>
-          • 상단: 레이더 차트(오늘의 결과)<br/>
-          • 하단: 부위별 진행도 수치화
-        </td>
-        <td style="border:1px solid #e5e7eb; padding:12px; vertical-align:top;">
-          • 가글 타이머 종료 후 결과 화면 자동 진입<br/>
-          • 레이더에서 전반 진행도를 한눈에 확인, 하단 리스트로 <b>미흡 구역</b> 우선 제시<br/>
-          • 결과는 리포트 탭의 <b>일/주/월 기록</b>에 누적 반영
-        </td>
-      </tr>
-    </table>
+<!-- 결과 해석 포인트 -->
+<table align="center" style="border-collapse:collapse; table-layout:fixed; width:100%; max-width:900px;">
+  <tr>
+    <th style="border:1px solid #e5e7eb; padding:10px; width:42%;">화면 구성</th>
+    <th style="border:1px solid #e5e7eb; padding:10px; width:58%;">설명</th>
+  </tr>
+  <tr>
+    <td style="border:1px solid #e5e7eb; padding:12px; vertical-align:top;">
+      <b>가글(30초)</b> → <b>최종 결과</b><br/>
+      • 상단: 레이더 차트(오늘의 결과)<br/>
+      • 하단: 부위별 진행도 수치화
+    </td>
+    <td style="border:1px solid #e5e7eb; padding:12px; vertical-align:top;">
+      • 가글 타이머 종료 후 결과 화면 자동 진입<br/>
+      • 레이더로 전반 진행도 확인, 하단 리스트에서 <b>미흡 구역</b> 우선 제시<br/>
+      • 결과는 리포트 탭의 <b>일/주/월 기록</b>에 누적 반영
+    </td>
+  </tr>
+</table>
+
 
   </div>
 </details>
@@ -267,57 +273,60 @@
   <summary><b>📊 리포트 – 상세 보기</b> (클릭하여 펼치기)</summary>
   <div style="margin:12px 0;">
 
-    <div align="center" style="margin-bottom:10px;">
-      <img
-        src="https://github.com/user-attachments/assets/24439cfa-4986-48ad-a18e-74fa499bc33f"
-        alt="리포트: 달력 탭 → 일간 상세 / 월간·일간·주간 기록 개요"
-        style="width:100%; max-width:840px; height:auto;"
-      />
-    </div>
+ <!-- 리포트 개요 -->
+<div align="center" style="margin-bottom:10px;">
+  <img
+    src="https://github.com/user-attachments/assets/24439cfa-4986-48ad-a18e-74fa499bc33f"
+    alt="리포트: 달력 탭 → 일간 상세 / 월간·일간·주간 기록 개요"
+    style="width:100%; max-width:840px; height:auto;"
+  />
+</div>
 
-    <table align="center" style="border-collapse:collapse; table-layout:fixed; width:100%; max-width:900px;">
-      <tr>
-        <th style="border:1px solid #e5e7eb; padding:10px; width:42%;">구성 요소</th>
-        <th style="border:1px solid #e5e7eb; padding:10px; width:58%;">상세 설명</th>
-      </tr>
-      <tr>
-        <td style="border:1px solid #e5e7eb; padding:12px; vertical-align:top;">
-          <b>① 월간 기록</b><br/>
-          • 달력(1~31일)<br/>
-          • <u>1·2·3회 양치</u> 범례(도트/색상)
-        </td>
-        <td style="border:1px solid #e5e7eb; padding:12px; vertical-align:top;">
-          • 날짜 도트로 해당 일의 <b>양치 횟수</b>를 한눈에 확인<br/>
-          • <b>날짜 탭</b> 시 → <b>일간 상세</b>로 이동(붉은 박스 영역)<br/>
-          • 월 변경 시 누적 달성률(예: <code>완료일 n일 / 목표일 m일</code>) 갱신
-        </td>
-      </tr>
-      <tr>
-        <td style="border:1px solid #e5e7eb; padding:12px; vertical-align:top;">
-          <b>② 일간 기록</b><br/>
-          • <u>아침/점심/저녁</u> 3슬롯 진행도<br/>
-          • 최종 결과 카드(해당 회차)<br/>
-          • 부위별 양치 진행도(파이/막대)
-        </td>
-        <td style="border:1px solid #e5e7eb; padding:12px; vertical-align:top;">
-          • 선택 날짜의 <b>오늘 진행</b>(예: <code>1/3 완료</code>) 표시<br/>
-          • 각 회차 누르면 <b>최종 결과 화면</b>(미흡 구역 리뷰) 열람<br/>
-          • 기록 없을 때는 Empty State 가이드 노출
-        </td>
-      </tr>
-      <tr>
-        <td style="border:1px solid #e5e7eb; padding:12px; vertical-align:top;">
-          <b>③ 주간 기록</b><br/>
-          • 요일별 스탬프(완료/부분/미완)<br/>
-          • 주 단위 달성률/연속일(스트릭)
-        </td>
-        <td style="border:1px solid #e5e7eb; padding:12px; vertical-align:top;">
-          • 최근 1주(월~일) 진행을 원형 스탬프로 요약<br/>
-          • <b>스트릭·주간 완료률</b>로 동기부여 강화<br/>
-          • 주 전환: 좌우 스와이프/화살표
-        </td>
-      </tr>
-    </table>
+<!-- 구성/설명 표 -->
+<table align="center" style="border-collapse:collapse; table-layout:fixed; width:100%; max-width:900px;">
+  <tr>
+    <th style="border:1px solid #e5e7eb; padding:10px; width:42%;">구성 요소</th>
+    <th style="border:1px solid #e5e7eb; padding:10px; width:58%;">상세 설명</th>
+  </tr>
+  <tr>
+    <td style="border:1px solid #e5e7eb; padding:12px; vertical-align:top;">
+      <b>① 월간 기록</b><br/>
+      • 달력(1~31일)<br/>
+      • <u>1·2·3회 양치</u> 범례(도트/색상)
+    </td>
+    <td style="border:1px solid #e5e7eb; padding:12px; vertical-align:top;">
+      • 날짜 도트로 해당 일의 <b>양치 횟수</b> 한눈에 파악<br/>
+      • <b>날짜 탭</b> 시 → <b>일간 상세</b>로 이동(붉은 박스 영역)<br/>
+      • 월 변경 시 누적 달성률(예: <code>완료일 n일 / 목표일 m일</code>) 갱신
+    </td>
+  </tr>
+  <tr>
+    <td style="border:1px solid #e5e7eb; padding:12px; vertical-align:top;">
+      <b>② 일간 기록</b><br/>
+      • <u>아침/점심/저녁</u> 3슬롯 진행도<br/>
+      • 최종 결과 카드(해당 회차)<br/>
+      • 부위별 양치 진행도(파이/막대)
+    </td>
+    <td style="border:1px solid #e5e7eb; padding:12px; vertical-align:top;">
+      • 선택 날짜의 <b>오늘 진행</b>(예: <code>1/3 완료</code>) 표시<br/>
+      • 각 회차 탭 → <b>최종 결과 화면</b>(미흡 구역 리뷰) 열람<br/>
+      • 기록 없을 때는 Empty State 가이드 노출
+    </td>
+  </tr>
+  <tr>
+    <td style="border:1px solid #e5e7eb; padding:12px; vertical-align:top;">
+      <b>③ 주간 기록</b><br/>
+      • 요일별 스탬프(완료/부분/미완)<br/>
+      • 주 단위 달성률/연속일(스트릭)
+    </td>
+    <td style="border:1px solid #e5e7eb; padding:12px; vertical-align:top;">
+      • 최근 1주(월~일) 진행을 원형 스탬프로 요약<br/>
+      • <b>스트릭·주간 완료률</b>로 동기부여 강화<br/>
+      • 주 전환: 좌우 스와이프/화살표
+    </td>
+  </tr>
+</table>
+
 
   </div>
 </details>
@@ -325,17 +334,42 @@
 ## 🔧 아키텍처 다이어그램
 
 <p align="center">
+  <!-- 필요 시 이미지 교체 -->
   <img src="https://github.com/user-attachments/assets/0a12bfff-dec4-4a52-bad2-9afc72c52353" alt="architecture-diagram" width="700"/>
 </p>
 
-> 전체 시스템은 **3-Tier 구조 기반의 경량 아키텍처**입니다.  
-> - 빠른 응답성과 구조 단순화를 위해 3-Tier를 개조하여 경량화했습니다.  
-> - 별도의 Service Layer 없이, API 내부에서 모든 로직을 직접 처리하도록 구성했습니다.  
->
-> **Firebase**를 데이터 저장소로, **FastAPI**를 중심으로 검색 / 분류 / 추천 기능을 제공합니다.  
-> - 데이터는 Firebase에 상세 필드를 포함해 업로드되어 있으며 단순·명확한 스키마를 유지합니다.  
->
-> 앱은 **Flutter + Dart**로 개발되어 사용자 인터페이스를 담당합니다.
+> 전체 시스템은 **모바일 온디바이스 ML + 경량 백엔드(옵션)** 구조입니다.  
+> - **핵심 추론은 단말 내(TFLite)** 에서 수행되어 **오프라인 동작**과 낮은 지연을 보장합니다.  
+> - 서버는 필수 컴포넌트가 아니라, **동기화·콘텐츠·원격 설정·통계 집계**에 한정합니다.
+
+### 데이터 흐름(앱 중심)
+1. **카메라 입력 → MediaPipe Tasks**  
+   얼굴 정렬/포즈 신호를 획득.
+2. **피처 처리 → TFLite(CNN+GRU, SELECT_TF_OPS)**  
+   13구역 진행률을 온디바이스로 추론.
+3. **피드백 엔진(TTS/진동/타이머)**  
+   진행도 구간별 멘트/햅틱을 실시간 제공.
+4. **로컬 저장(Local-first)**  
+   일·주·월 기록/스트릭/리포트를 우선 로컬에 저장.
+5. *(옵션)* **클라우드 동기화**  
+   네트워크 가능 시 Firestore/Storage로 업로드.
+
+### 백엔드(옵션) 역할
+- **Auth/사용자 동기화**: Firebase Auth + Firestore(리포트 요약, 스트릭)  
+- **Remote Config/Feature Flag**: 임계치/멘트 톤/실험 플래그 원격 제어  
+- **콘텐츠 배포**: 교육 자료/튜토리얼 카드(Cloud Storage 또는 Firestore)  
+- **집계/리포팅**: 주간/월간 통계를 서버에서 사후 집계(Cloud Functions or FastAPI)  
+- **운영/품질**: Crashlytics, Analytics, A/B 테스트
+
+### 왜 3-Tier를 쓰지 않았나?
+- API 중심 3-Tier 대신, **Mobile(뷰+도메인) ↔ 경량 백엔드**로 단순화.  
+- 모델 추론·도메인 로직이 단말에 있어 **왕복 지연 최소화** 및 **네트워크 독립성** 확보.
+
+### 저장소 설계(요약)
+- **로컬(기본)**: 기록 스냅샷, 일/주/월 통계 캐시, 사용자 설정  
+- **클라우드(옵션)**: 사용자별 합산 통계, 원격 플래그, 교육 자료 메타
+
+
 
 ## 🛠️ My Work
 
@@ -357,3 +391,4 @@
 
 ## 📄 라이선스
 MIT © 2025 ChicaChew Team
+
